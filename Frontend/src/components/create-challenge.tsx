@@ -15,15 +15,21 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { Modal } from './modal';
 import { stakeTotal } from '@/hooks/use-streaker';
-import { Challenge, HabitKind } from '@/lib/types';
+import { Challenge, HabitKind, UserProfile } from '@/lib/types';
 export function CreateChallenge({
   onClose,
   onCreate,
   notify,
+  registeredUsers = [],
+  currentUser = null,
+  onInviteFriend,
 }: {
   onClose: () => void;
   onCreate: (c: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => Challenge | Promise<Challenge>;
   notify: (s: string) => void;
+  registeredUsers?: UserProfile[];
+  currentUser?: UserProfile | null;
+  onInviteFriend?: (streakId: string, inviteeIdentifier: string) => Promise<any>;
 }) {
   const [step, setStep] = useState(1),
     [title, setTitle] = useState(''),
@@ -31,6 +37,7 @@ export function CreateChallenge({
     [duration, setDuration] = useState(21),
     [stake, setStake] = useState('0.1'),
     [error, setError] = useState(''),
+    [invitedMap, setInvitedMap] = useState<Record<string, boolean>>({}),
     [created, setCreated] = useState<Challenge | null>(null);
   const validStake =
     /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(stake) && Number(stake) > 0 && Number(stake) <= 100;
@@ -263,8 +270,103 @@ export function CreateChallenge({
           >
             <Share2 size={17} /> Share invite
           </button>
+          {/* Direct Friend Invitations List */}
+          {registeredUsers && registeredUsers.filter((u) => u.id !== currentUser?.id).length > 0 && (
+            <div
+              style={{
+                marginTop: '16px',
+                marginBottom: '16px',
+                background: '#15141c',
+                border: '1px solid #282736',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                textAlign: 'left',
+              }}
+            >
+              <h4
+                style={{
+                  margin: '0 0 10px',
+                  fontSize: '13px',
+                  color: '#ff824c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Users size={15} /> Directly Invite Registered Friends
+              </h4>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  maxHeight: '160px',
+                  overflowY: 'auto',
+                }}
+              >
+                {registeredUsers
+                  .filter((u) => u.id !== currentUser?.id)
+                  .map((friend) => (
+                    <div
+                      key={friend.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: '#1c1b26',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #2d2b38',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className={`avatar tiny ${friend.avatar_color || 'purple'}`}>
+                          {friend.initials || friend.username.slice(0, 2).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong style={{ fontSize: '13px', color: '#fff', display: 'block' }}>
+                            {friend.display_name}
+                          </strong>
+                          <span style={{ fontSize: '11px', color: '#888' }}>@{friend.username}</span>
+                        </div>
+                      </div>
+                      <button
+                        className="button secondary"
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '11.5px',
+                          minHeight: 'unset',
+                          borderColor: invitedMap[friend.id] ? '#a4cbb0' : undefined,
+                        }}
+                        disabled={invitedMap[friend.id]}
+                        onClick={async () => {
+                          if (onInviteFriend && created) {
+                            try {
+                              await onInviteFriend(created.id, friend.id);
+                              setInvitedMap((prev) => ({ ...prev, [friend.id]: true }));
+                              notify(`Invited @${friend.username} to ${created.title}!`);
+                            } catch (e) {
+                              notify((e as Error).message);
+                            }
+                          }
+                        }}
+                      >
+                        {invitedMap[friend.id] ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#a4cbb0' }}>
+                            <Check size={13} /> Invited
+                          </span>
+                        ) : (
+                          '+ Invite 🔥'
+                        )}
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           <p className="helper center">
-            Demo invites are stored on this device. Cross-device joining needs a backend.
+            Synced live with Neon PostgreSQL & Monad Testnet. Friends receive in-app invitations instantly.
           </p>
           <button className="button secondary full" onClick={onClose}>
             Let’s start this streak <ArrowRight size={17} />

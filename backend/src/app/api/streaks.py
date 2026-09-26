@@ -33,11 +33,56 @@ class StreakJoinBody(BaseModel):
     user_id: str
     wallet_address: Optional[str] = None
 
+class StreakInviteBody(BaseModel):
+    inviter_id: str
+    invitee_identifier: Optional[str] = None
+    invitee_id: Optional[str] = None
+
+class InvitationRespondBody(BaseModel):
+    accept: bool
+    user_id: Optional[str] = None
+    wallet_address: Optional[str] = None
+
 @router.get("")
 @router.get("/")
 def list_streaks(user_id: Optional[str] = Query(None)):
     """List habit challenges, optionally filtered by user ID."""
     return db.list_streaks(user_id=user_id)
+
+@router.get("/invitations")
+def get_user_invitations(user_id: str = Query(...)):
+    """List pending habit challenge invitations for the user."""
+    return db.list_user_invitations(user_id=user_id)
+
+@router.post("/invitations/{id}/respond")
+def respond_to_invitation(id: str, req: InvitationRespondBody):
+    """Accept or decline an invitation to join a challenge."""
+    try:
+        result = db.respond_invitation(
+            invitation_id=id,
+            accept=req.accept,
+            user_id=req.user_id,
+            wallet_address=req.wallet_address
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/{id}/invite")
+def invite_friend(id: str, req: StreakInviteBody):
+    """Directly invite a registered friend by username or ID to participate."""
+    target = req.invitee_identifier or req.invitee_id
+    if not target:
+        raise HTTPException(status_code=400, detail="Either invitee_id or invitee_identifier is required")
+    try:
+        invitation = db.create_invitation(
+            streak_id=id,
+            inviter_id=req.inviter_id,
+            invitee_identifier=target
+        )
+        return invitation
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("")
 @router.post("/")

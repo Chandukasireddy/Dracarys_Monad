@@ -9,5 +9,6 @@ export function initialState(): DemoState {
     user: null,
     challenges: [],
     approvals: [],
+    invitations: [],
   };
 }

@@ -17,6 +17,7 @@ export function useStreaker() {
   const [state, setState] = useState<DemoState>(initialState);
   const [ready, setReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
+  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>([]);
   const current = useRef(state);
 
   // Sync state helper
@@ -31,18 +32,34 @@ export function useStreaker() {
     }
   }, []);
 
-  // Fetch remote streaks & approvals for authenticated user
+  const loadRegisteredUsers = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/users`);
+      if (res.ok) {
+        const users = await res.json();
+        if (Array.isArray(users)) {
+          setRegisteredUsers(users);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load registered users:', err);
+    }
+  }, []);
+
+  // Fetch remote streaks, approvals & invitations for authenticated user
   const syncWithBackend = useCallback(async (user: UserProfile | null) => {
+    loadRegisteredUsers();
     if (!user) return;
     try {
-      const [streaksRes, pendingRes] = await Promise.all([
+      const [streaksRes, pendingRes, invRes] = await Promise.all([
         fetch(`${API_URL}/api/streaks?user_id=${encodeURIComponent(user.id)}`).catch(() => null),
         fetch(`${API_URL}/api/streaks/pending-approvals?user_id=${encodeURIComponent(user.id)}`).catch(() => null),
+        fetch(`${API_URL}/api/streaks/invitations?user_id=${encodeURIComponent(user.id)}`).catch(() => null),
       ]);
 
       if (streaksRes && streaksRes.ok) {
         const remoteStreaks = await streaksRes.json();
-        if (Array.isArray(remoteStreaks) && remoteStreaks.length > 0) {
+        if (Array.isArray(remoteStreaks)) {
           update((s) => ({
             ...s,
             challenges: remoteStreaks.map((rs: any) => ({
@@ -78,13 +95,24 @@ export function useStreaker() {
           update((s) => ({ ...s, approvals: mapped }));
         }
       }
+
+      if (invRes && invRes.ok) {
+        const remoteInvs = await invRes.json();
+        if (Array.isArray(remoteInvs)) {
+          update((s) => ({
+            ...s,
+            invitations: remoteInvs.filter((i: any) => i.status === 'pending'),
+          }));
+        }
+      }
     } catch (err) {
       console.warn('Backend sync failed, using local cache:', err);
     }
-  }, [update]);
+  }, [update, loadRegisteredUsers]);
 
   // Initial load
   useEffect(() => {
+    loadRegisteredUsers();
     try {
       const raw = localStorage.getItem(STORAGE);
       if (raw) {
@@ -96,6 +124,7 @@ export function useStreaker() {
             user: value.user || null,
             challenges: Array.isArray(value.challenges) ? value.challenges : [],
             approvals: Array.isArray(value.approvals) ? value.approvals : [],
+            invitations: Array.isArray(value.invitations) ? value.invitations : [],
           };
           setState(current.current);
           if (value.user) {
@@ -107,7 +136,7 @@ export function useStreaker() {
       setStorageWarning(true);
     }
     setReady(true);
-  }, [syncWithBackend]);
+  }, [syncWithBackend, loadRegisteredUsers]);
 
   const checkIn = useCallback(
     (id: string) => {
@@ -329,6 +358,78 @@ export function useStreaker() {
     [update],
   );
 
+  const inviteFriend = useCallback(
+    async (streakId: string, inviteeIdentifier: string) => {
+      const user = current.current.user;
+      if (!user) throw new Error('Please log in to invite friends.');
+      const res = await fetch(`${API_URL}/api/streaks/${encodeURIComponent(streakId)}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inviter_id: user.id,
+          invitee_identifier: inviteeIdentifier,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to send challenge invite.' }));
+        throw new Error(err.detail || 'Failed to send challenge invite.');
+      }
+      return await res.json();
+    },
+    [],
+  );
+
+  const respondToInvitation = useCallback(
+    async (invitationId: string, accept: boolean) => {
+      const user = current.current.user;
+      const res = await fetch(`${API_URL}/api/streaks/invitations/${encodeURIComponent(invitationId)}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accept,
+          user_id: user?.id,
+          wallet_address: user?.wallet_address,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to respond to invitation.' }));
+        throw new Error(err.detail || 'Failed to respond to invitation.');
+      }
+      const data = await res.json();
+      // Remove from pending invitations
+      update((s) => ({
+        ...s,
+        invitations: s.invitations.filter((i) => i.id !== invitationId),
+      }));
+
+      // If accepted, add the streak to challenges list if present
+      if (accept && data.streak) {
+        const rs = data.streak;
+        const newChallenge: Challenge = {
+          id: rs.id,
+          title: rs.title,
+          description: rs.description || 'Kindle your flame together.',
+          kind: rs.kind || 'fitness',
+          duration: rs.duration || 7,
+          dailyStake: rs.daily_stake || '0.05',
+          completed: 0,
+          checkInDates: [],
+          inviteCode: rs.invite_code || `DRA-${rs.id.slice(0, 6).toUpperCase()}`,
+          members: (rs.member_count || 1) + 1,
+        };
+        update((s) => ({
+          ...s,
+          challenges: s.challenges.some((c) => c.id === newChallenge.id)
+            ? s.challenges
+            : [...s.challenges, newChallenge],
+          joinedCodes: [...s.joinedCodes, newChallenge.inviteCode],
+        }));
+      }
+      return data;
+    },
+    [update],
+  );
+
   const setSound = (sound: boolean) => update((s) => ({ ...s, sound }));
   const reset = () => update(() => initialState());
 
@@ -336,9 +437,14 @@ export function useStreaker() {
     ...state,
     ready,
     storageWarning,
+    registeredUsers,
     checkIn,
     createChallenge,
     joinChallenge,
+    inviteFriend,
+    respondToInvitation,
+    loadRegisteredUsers,
+    syncWithBackend,
     approveFriend,
     loginUser,
     logoutUser,

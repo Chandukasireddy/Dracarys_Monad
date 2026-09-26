@@ -157,6 +157,15 @@ class DatabaseManager:
                     created_at DOUBLE PRECISION
                 );
 
+                CREATE TABLE IF NOT EXISTS invitations (
+                    id TEXT PRIMARY KEY,
+                    streak_id TEXT NOT NULL,
+                    inviter_id TEXT NOT NULL,
+                    invitee_id TEXT NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    created_at DOUBLE PRECISION
+                );
+
                 CREATE TABLE IF NOT EXISTS feed_events (
                     id TEXT PRIMARY KEY,
                     streak_id TEXT NOT NULL,
@@ -242,6 +251,16 @@ class DatabaseManager:
                     approver_address TEXT,
                     approved INTEGER NOT NULL DEFAULT 1,
                     comment TEXT,
+                    created_at REAL
+                );
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS invitations (
+                    id TEXT PRIMARY KEY,
+                    streak_id TEXT NOT NULL,
+                    inviter_id TEXT NOT NULL,
+                    invitee_id TEXT NOT NULL,
+                    status TEXT DEFAULT 'pending',
                     created_at REAL
                 );
             """)
@@ -708,5 +727,117 @@ class DatabaseManager:
         rows = [dict(r) for r in cursor.fetchall()]
         conn.close()
         return rows
+
+    # ================= INVITATIONS =================
+
+    def create_invitation(self, streak_id: str, inviter_id: str, invitee_identifier: str) -> Dict[str, Any]:
+        invitee = self.get_user_by_identifier(invitee_identifier)
+        if not invitee:
+            raise ValueError(f"User '{invitee_identifier}' not found")
+
+        streak = self.get_streak(streak_id)
+        if not streak:
+            raise ValueError(f"Streak '{streak_id}' not found")
+
+        for m in streak.get("members", []):
+            if m["user_id"] == invitee["id"] or (invitee.get("wallet_address") and m.get("wallet_address") == invitee["wallet_address"]):
+                raise ValueError(f"{invitee['display_name']} is already enrolled in this streak!")
+
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        ph = "%s" if self.is_postgres else "?"
+
+        cursor.execute(f"SELECT * FROM invitations WHERE streak_id = {ph} AND invitee_id = {ph} AND status = 'pending'", (streak_id, invitee["id"]))
+        existing = cursor.fetchone()
+        if existing:
+            conn.close()
+            return dict(existing)
+
+        inv_id = f"inv-{uuid.uuid4().hex[:8]}"
+        now = time.time()
+        query = f"""
+            INSERT INTO invitations (id, streak_id, inviter_id, invitee_id, status, created_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, 'pending', {ph})
+        """
+        cursor.execute(query, (inv_id, streak_id, inviter_id, invitee["id"], now))
+        conn.commit()
+        conn.close()
+
+        self.add_feed_event({
+            "streak_id": streak_id,
+            "event_type": "INVITED",
+            "title": "💌 STREAK INVITATION SENT",
+            "description": f"Invited {invitee['display_name']} (@{invitee['username']}) to join '{streak['title']}'!",
+            "actor": inviter_id,
+            "target_user": invitee["id"]
+        })
+
+        return {
+            "id": inv_id,
+            "streak_id": streak_id,
+            "inviter_id": inviter_id,
+            "invitee_id": invitee["id"],
+            "invitee_name": invitee["display_name"],
+            "invitee_username": invitee["username"],
+            "status": "pending",
+            "created_at": now
+        }
+
+    def list_user_invitations(self, user_id: str) -> List[Dict[str, Any]]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        ph = "%s" if self.is_postgres else "?"
+        query = f"""
+            SELECT i.id, i.streak_id, i.inviter_id, i.invitee_id, i.status, i.created_at,
+                   s.title as streak_title, s.description as streak_description,
+                   s.kind as streak_kind, s.duration as streak_duration, s.daily_stake as streak_stake,
+                   s.invite_code as streak_invite_code,
+                   u.display_name as inviter_name, u.username as inviter_username, u.avatar_color as inviter_color
+            FROM invitations i
+            JOIN streaks s ON i.streak_id = s.id
+            LEFT JOIN users u ON i.inviter_id = u.id OR i.inviter_id = u.wallet_address
+            WHERE i.invitee_id = {ph} AND i.status = 'pending'
+            ORDER BY i.created_at DESC
+        """
+        cursor.execute(query, (user_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    def respond_invitation(self, invitation_id: str, accept: bool, user_id: Optional[str] = None, wallet_address: Optional[str] = None) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        ph = "%s" if self.is_postgres else "?"
+        cursor.execute(f"SELECT * FROM invitations WHERE id = {ph}", (invitation_id,))
+        inv = cursor.fetchone()
+        if not inv:
+            conn.close()
+            raise ValueError("Invitation not found")
+        inv_dict = dict(inv)
+
+        new_status = "accepted" if accept else "declined"
+        cursor.execute(f"UPDATE invitations SET status = {ph} WHERE id = {ph}", (new_status, invitation_id))
+        conn.commit()
+        conn.close()
+
+        streak = self.get_streak(inv_dict["streak_id"])
+
+        if accept:
+            actual_user_id = user_id or inv_dict["invitee_id"]
+            self.join_streak(inv_dict["streak_id"], actual_user_id, wallet_address)
+            self.add_feed_event({
+                "streak_id": inv_dict["streak_id"],
+                "event_type": "JOINED",
+                "title": "🤝 INVITATION ACCEPTED",
+                "description": f"Challenge invitation accepted for '{streak['title'] if streak else 'Challenge'}'!",
+                "actor": wallet_address or actual_user_id,
+                "day": 1
+            })
+
+        return {
+            "invitation_id": invitation_id,
+            "status": new_status,
+            "streak": streak
+        }
 
 db = DatabaseManager()

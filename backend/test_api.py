@@ -31,8 +31,10 @@ def test_dracarys_pipeline():
     print("✅ 1. Health check passed:", res.json()["engine"])
 
     # 2. Register real user
+    t_ts = int(time.time() * 1000)
+    chad_username = f"chad_{t_ts}"
     reg_res = client.post("/api/users/register", json={
-        "username": "testchad",
+        "username": chad_username,
         "display_name": "Chad Bro",
         "password": "chadpassword123",
         "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
@@ -108,12 +110,52 @@ def test_dracarys_pipeline():
     assert verify_data["is_unlocked"] is True
     print(f"✅ 7. Peer verification quorum reached: {verify_data['status']}")
 
-    # 8. Feed check
+    # 8. Friend Direct Invitation & Accept Workflow
+    # Register friend Abubaker
+    abu_username = f"abu_{t_ts}"
+    reg_abu = client.post("/api/users/register", json={
+        "username": abu_username,
+        "display_name": "Abubaker Monad",
+        "password": "abu_password123",
+        "wallet_address": "0x1234567890123456789012345678901234567890"
+    })
+    assert reg_abu.status_code == 200
+    abu_user = reg_abu.json()
+
+    # Chad invites Abubaker to the streak
+    inv_res = client.post(f"/api/streaks/{streak_id}/invite", json={
+        "inviter_id": user["id"],
+        "invitee_id": abu_user["id"]
+    })
+    assert inv_res.status_code == 200, f"Invite friend failed: {inv_res.text}"
+    inv_data = inv_res.json()
+    assert inv_data["status"] == "pending"
+    inv_id = inv_data["id"]
+    print(f"✅ 8. Directly invited friend {abu_user['username']} to challenge: {inv_id}")
+
+    # Abubaker fetches pending invitations
+    abu_invs = client.get(f"/api/streaks/invitations?user_id={abu_user['id']}")
+    assert abu_invs.status_code == 200
+    inv_list = abu_invs.json()
+    assert len(inv_list) == 1
+    assert inv_list[0]["id"] == inv_id
+    assert inv_list[0]["streak_title"] == "🔥 Monad Blitz Berlin 10k Steps & Gym"
+    print(f"✅ 9. Friend fetched incoming pending invitations: {inv_list[0]['streak_title']}")
+
+    # Abubaker accepts the challenge invitation
+    accept_res = client.post(f"/api/streaks/invitations/{inv_id}/respond", json={
+        "accept": True,
+        "wallet_address": abu_user["wallet_address"]
+    })
+    assert accept_res.status_code == 200
+    print("✅ 10. Friend accepted challenge invitation and joined streak automatically")
+
+    # 11. Feed check
     feed_res = client.get(f"/api/streaks/{streak_id}/feed")
     assert feed_res.status_code == 200
     feed = feed_res.json()
     assert len(feed) >= 1
-    print(f"✅ 8. Social feed events captured: {len(feed)}")
+    print(f"✅ 11. Social feed events captured: {len(feed)}")
     print("=" * 60)
     print("🔥 ALL DRACARYS BACKEND PIPELINE TESTS PASSED!")
     print("=" * 60)

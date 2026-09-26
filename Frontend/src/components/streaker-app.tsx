@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   X,
   Sparkles,
+  Smartphone,
 } from 'lucide-react';
 import { useStreaker, stakeTotal } from '@/hooks/use-streaker';
 import { Challenge, dayKey, challengeDates, longestRun, currentRun } from '@/lib/types';
@@ -35,9 +36,10 @@ import { CreateChallenge, JoinChallenge } from './create-challenge';
 import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
 import { AccountModal } from './account-modal';
+import { MobileSyncModal } from './mobile-sync-modal';
 
 type Tab = 'streaks' | 'friends' | 'progress';
-type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | null;
+type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | 'mobile-sync' | null;
 export function StreakerApp() {
   const store = useStreaker();
   const { address, isConnected } = useConnection();
@@ -47,6 +49,7 @@ export function StreakerApp() {
     [details, setDetails] = useState<Challenge | null>(null),
     [toast, setToast] = useState(''),
     [filter, setFilter] = useState<'active' | 'completed'>('active'),
+    [detailsInvited, setDetailsInvited] = useState<Record<string, boolean>>({}),
     [invite, setInvite] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipe = useRef<{ x: number; y: number } | null>(null);
@@ -240,6 +243,27 @@ export function StreakerApp() {
                 {isConnected ? `${address?.slice(0, 5)}…${address?.slice(-4)}` : 'Connect wallet'}
               </span>
             </button>
+            <button
+              className="icon-button"
+              aria-label="Mobile MetaMask Sync Guide"
+              title="Mobile & MetaMask Sync Guide"
+              onClick={() => setDialog('mobile-sync')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: '#191922',
+                border: '1px solid #363442',
+                padding: '6px 10px',
+                borderRadius: '999px',
+                color: '#ff824c',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              <Smartphone size={15} />
+              <span style={{ fontWeight: 500 }}>Mobile Sync</span>
+            </button>
           </div>
         </header>
         <main
@@ -409,6 +433,135 @@ export function StreakerApp() {
                     </span>
                   </div>
                 </section>
+
+                {/* Incoming Challenge Invitations Banner */}
+                {store.invitations && store.invitations.length > 0 && (
+                  <section
+                    className="panel"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, rgba(255, 130, 76, 0.14) 0%, rgba(161, 147, 255, 0.09) 100%)',
+                      border: '1px solid rgba(255, 130, 76, 0.4)',
+                      borderRadius: '16px',
+                      padding: '18px 20px',
+                      marginBottom: '22px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Flame size={20} style={{ color: '#ff824c' }} />
+                        <h3 style={{ margin: 0, fontSize: '16px', color: '#fff', fontWeight: 600 }}>
+                          Incoming Challenge Invitations ({store.invitations.length})
+                        </h3>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          color: '#ff824c',
+                          fontWeight: 600,
+                          background: 'rgba(255, 130, 76, 0.15)',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                        }}
+                      >
+                        Action Required 🔥
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {store.invitations.map((inv) => (
+                        <article
+                          key={inv.id}
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'rgba(20, 20, 26, 0.9)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '12px',
+                            padding: '14px 16px',
+                            gap: '12px',
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '4px',
+                              }}
+                            >
+                              <span className={`avatar tiny ${inv.inviter_color || 'purple'}`}>
+                                {(inv.inviter_name || inv.inviter_username || 'AJ')
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </span>
+                              <strong style={{ fontSize: '13.5px', color: '#fff' }}>
+                                {inv.inviter_name || `@${inv.inviter_username}`} invited you to join
+                              </strong>
+                            </div>
+                            <h4
+                              style={{
+                                margin: '4px 0 2px',
+                                fontSize: '15px',
+                                color: '#ff824c',
+                              }}
+                            >
+                              {inv.streak_title}
+                            </h4>
+                            <p style={{ margin: 0, fontSize: '12.5px', color: '#a8a6b6' }}>
+                              {inv.streak_duration} days · {inv.streak_stake} MON / day · Code:{' '}
+                              <code style={{ color: '#fff' }}>{inv.streak_invite_code}</code>
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              className="button primary"
+                              style={{ fontSize: '13px', padding: '8px 14px' }}
+                              onClick={async () => {
+                                try {
+                                  await store.respondToInvitation(inv.id, true);
+                                  notify(
+                                    `Challenge accepted! You've joined "${inv.streak_title}" 🔥`,
+                                  );
+                                } catch (e) {
+                                  notify((e as Error).message);
+                                }
+                              }}
+                            >
+                              <Check size={16} /> Accept & Join 🔥
+                            </button>
+                            <button
+                              className="button secondary"
+                              style={{ fontSize: '13px', padding: '8px 12px', color: '#888' }}
+                              onClick={async () => {
+                                try {
+                                  await store.respondToInvitation(inv.id, false);
+                                  notify(`Declined invitation for "${inv.streak_title}".`);
+                                } catch (e) {
+                                  notify((e as Error).message);
+                                }
+                              }}
+                            >
+                              <X size={15} /> Decline
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 <section className="streaks-section">
                   <div className="section-heading challenge-heading">
                     <div>
@@ -671,6 +824,9 @@ export function StreakerApp() {
           onClose={() => setDialog(null)}
           onCreate={store.createChallenge}
           notify={notify}
+          registeredUsers={store.registeredUsers}
+          currentUser={store.user}
+          onInviteFriend={store.inviteFriend}
         />
       )}
       {dialog === 'join' && (
@@ -727,7 +883,7 @@ export function StreakerApp() {
             )}
           </div>
           <p className="helper">
-            Demo balances. USD values are sample figures, not a live MON price.
+            Synced with Neon PostgreSQL & Monad Testnet escrow contract.
           </p>
           <button
             className="invite-code full"
@@ -745,6 +901,102 @@ export function StreakerApp() {
             {details.inviteCode}
             <Copy size={16} />
           </button>
+
+          {/* Direct Friend Invitations from Details Modal */}
+          {store.registeredUsers && store.registeredUsers.filter((u) => u.id !== store.user?.id).length > 0 && (
+            <div
+              style={{
+                marginTop: '14px',
+                marginBottom: '14px',
+                background: '#15141c',
+                border: '1px solid #282736',
+                borderRadius: '12px',
+                padding: '12px 14px',
+              }}
+            >
+              <h4
+                style={{
+                  margin: '0 0 8px',
+                  fontSize: '13px',
+                  color: '#ff824c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Users size={15} /> Add Registered Friends to this Challenge
+              </h4>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  maxHeight: '130px',
+                  overflowY: 'auto',
+                }}
+              >
+                {store.registeredUsers
+                  .filter((u) => u.id !== store.user?.id)
+                  .map((friend) => {
+                    const isInv = detailsInvited[friend.id];
+                    return (
+                      <div
+                        key={friend.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: '#1c1b26',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #2d2b38',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`avatar tiny ${friend.avatar_color || 'purple'}`}>
+                            {friend.initials || friend.username.slice(0, 2).toUpperCase()}
+                          </span>
+                          <div>
+                            <strong style={{ fontSize: '12.5px', color: '#fff', display: 'block' }}>
+                              {friend.display_name}
+                            </strong>
+                            <span style={{ fontSize: '11px', color: '#888' }}>@{friend.username}</span>
+                          </div>
+                        </div>
+                        <button
+                          className="button secondary"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '11px',
+                            minHeight: 'unset',
+                            borderColor: isInv ? '#a4cbb0' : undefined,
+                          }}
+                          disabled={isInv}
+                          onClick={async () => {
+                            try {
+                              await store.inviteFriend(details.id, friend.id);
+                              setDetailsInvited((prev) => ({ ...prev, [friend.id]: true }));
+                              notify(`Invited @${friend.username} to ${details.title}! 🔥`);
+                            } catch (e) {
+                              notify((e as Error).message);
+                            }
+                          }}
+                        >
+                          {isInv ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#a4cbb0' }}>
+                              <Check size={12} /> Invited
+                            </span>
+                          ) : (
+                            '+ Invite 🔥'
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
           <button
             className="button primary full"
             disabled={details.lastCheckIn === dayKey() || details.completed >= details.duration}
@@ -839,9 +1091,13 @@ export function StreakerApp() {
             <span>{isConnected ? 'Manage wallet' : 'Connect wallet'}</span>
             <ArrowUpRight size={18} />
           </button>
+          <button className="setting-row" onClick={() => setDialog('mobile-sync')}>
+            <Smartphone size={20} />
+            <span>Mobile & MetaMask Sync Guide</span>
+            <ArrowUpRight size={18} />
+          </button>
           <div className="info-box">
-            Mock progress is saved in this browser. Proof photos are only previewed and are not
-            uploaded.
+            Connected to Neon PostgreSQL & Monad Testnet (Chain ID 10143). Escrow contract 0x7754...46E7.
           </div>
           <button
             className="button secondary full"
@@ -864,6 +1120,13 @@ export function StreakerApp() {
             Reset demo progress
           </button>
         </Modal>
+      )}
+      {dialog === 'mobile-sync' && (
+        <MobileSyncModal
+          onClose={() => setDialog(null)}
+          walletAddress={address || store.user?.wallet_address}
+          notify={notify}
+        />
       )}
     </div>
   );

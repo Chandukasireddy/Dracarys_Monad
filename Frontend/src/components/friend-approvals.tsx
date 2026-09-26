@@ -1,8 +1,12 @@
 'use client';
-import { Check, Flame, ArrowUpRight, ShieldCheck, PartyPopper } from 'lucide-react';
+import { Check, Flame, ArrowUpRight, ShieldCheck, PartyPopper, LoaderCircle, Zap, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { Approval } from '@/lib/types';
 import { Modal } from './modal';
+import { useChallengeContract } from '@/hooks/use-challenge-contract';
+import { useConnection } from 'wagmi';
+import { isAddress, type Address } from 'viem';
+
 export function FriendApprovals({
   approvals,
   onApprove,
@@ -15,7 +19,39 @@ export function FriendApprovals({
   onViewAll?: () => void;
 }) {
   const [proof, setProof] = useState<Approval | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const contract = useChallengeContract();
+  const { isConnected } = useConnection();
   const pending = approvals.filter((a) => !a.approved);
+
+  const handleApprove = async (approval: Approval) => {
+    setApprovingId(approval.id);
+    try {
+      // If wallet is connected and target has an EVM address or fallback
+      if (isConnected && contract.configured) {
+        try {
+          const friendAddr = isAddress(approval.name)
+            ? (approval.name as Address)
+            : '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as Address;
+          const receipt = await contract.approveCheckIn(
+            BigInt(1),
+            friendAddr,
+            BigInt(approval.streak || 1),
+          );
+          if (receipt?.transactionHash) {
+            setTxHash(receipt.transactionHash);
+          }
+        } catch (contractErr) {
+          console.warn('Contract approval skipped or reverted, approving via backend quorum:', contractErr);
+        }
+      }
+      onApprove(approval.id);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
   return (
     <>
       <section className={compact ? 'panel friend-panel' : 'friends-page'}>
@@ -28,6 +64,34 @@ export function FriendApprovals({
             ? 'Their streak is in your hands.'
             : 'Take a look at their proof. Give their commitment a little credit.'}
         </p>
+
+        {txHash && (
+          <div style={{
+            background: 'rgba(164, 203, 176, 0.1)',
+            border: '1px solid rgba(164, 203, 176, 0.3)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '14px',
+            fontSize: '12.5px',
+            color: '#a4cbb0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Zap size={15} /> Approved on Monad Testnet!
+            </span>
+            <a
+              href={`https://testnet.monadvision.com/tx/${txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#ff824c', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+            >
+              View Tx <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
+
         {pending.length === 0 ? (
           <div className="empty-state">
             <PartyPopper size={34} />
@@ -60,9 +124,10 @@ export function FriendApprovals({
                   <button
                     className="approve-icon"
                     aria-label={`Approve ${a.name}`}
-                    onClick={() => onApprove(a.id)}
+                    disabled={approvingId === a.id}
+                    onClick={() => handleApprove(a)}
                   >
-                    <Check size={17} />
+                    {approvingId === a.id ? <LoaderCircle className="spin" size={17} /> : <Check size={17} />}
                   </button>
                 ) : (
                   <>
@@ -73,8 +138,20 @@ export function FriendApprovals({
                       </span>
                     </button>
                     <p className="proof-note">“{a.note}”</p>
-                    <button className="button primary full" onClick={() => onApprove(a.id)}>
-                      <Check size={17} /> Approve {a.name.split(' ')[0]}
+                    <button
+                      className="button primary full"
+                      disabled={approvingId === a.id}
+                      onClick={() => handleApprove(a)}
+                    >
+                      {approvingId === a.id ? (
+                        <>
+                          <LoaderCircle className="spin" size={17} /> Signing on Monad…
+                        </>
+                      ) : (
+                        <>
+                          <Check size={17} /> Approve {a.name.split(' ')[0]}
+                        </>
+                      )}
                     </button>
                   </>
                 )}

@@ -37,9 +37,28 @@ export type UserProfile = {
   total_earned_mon?: number;
 };
 
+export type Invitation = {
+  id: string;
+  streak_id: string;
+  inviter_id: string;
+  invitee_id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: number;
+  streak_title: string;
+  streak_description?: string;
+  streak_kind: HabitKind;
+  streak_duration: number;
+  streak_stake: string;
+  streak_invite_code: string;
+  inviter_name?: string;
+  inviter_username?: string;
+  inviter_color?: string;
+};
+
 export type DemoState = {
   challenges: Challenge[];
   approvals: Approval[];
+  invitations: Invitation[];
   sound: boolean;
   joinedCodes: string[];
   user: UserProfile | null;
