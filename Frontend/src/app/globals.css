@@ -3556,3 +3556,231 @@ textarea::placeholder {
     flex-direction: column;
   }
 }
+
+/* =========================================================
+   COMPREHENSIVE RESPONSIVE TYPOGRAPHY & ICON FIXES
+   Ensures all text and icons are legible on every viewport
+   ========================================================= */
+
+/* --- Fluid base font so rem-based sizes scale naturally --- */
+html {
+  font-size: clamp(13px, 1.4vw, 16px);
+}
+
+/* --- Lift tiny utility sizes that could be illegible --- */
+.sidebar-caption        { font-size: clamp(9px,  1vw, 11px); }
+.breadcrumb             { font-size: clamp(10px, 1.1vw, 12px); }
+.greeting               { font-size: clamp(10px, 1.1vw, 12px); }
+.greeting > span        { font-size: clamp(14px, 1.6vw, 17px); }
+.status-tag             { font-size: clamp(9px,  1vw, 11px); letter-spacing: 0.5px; }
+.status-tag > span      { width: 6px; height: 6px; }
+.habit-description      { font-size: clamp(11px, 1.1vw, 13px); }
+.habit-finances > span  { font-size: clamp(10px, 1vw, 12px); }
+.habit-finances strong  { font-size: clamp(12px, 1.2vw, 14px); }
+.habit-finances small   { font-size: clamp(9px,  0.9vw, 10px); }
+.habit-progress-label strong { font-size: clamp(11px, 1.1vw, 13px); }
+.habit-progress-label > span { font-size: clamp(10px, 1vw, 12px); }
+.mini-crew > span       { font-size: clamp(10px, 1vw, 12px); }
+.checkin-button         { font-size: clamp(11px, 1.1vw, 13px); min-height: 34px; }
+.date-chip              { font-size: clamp(10px, 1vw, 12px); }
+.progress-ring small    { font-size: clamp(8px,  0.9vw, 10px); }
+.momentum-label         { font-size: clamp(9px,  0.9vw, 11px); }
+.count-badge            { font-size: clamp(9px,  0.9vw, 11px); }
+.section-description    { font-size: clamp(11px, 1.1vw, 13px); }
+.challenge-heading p    { font-size: clamp(11px, 1.1vw, 13px); }
+.hero-kicker            { font-size: clamp(9px,  0.9vw, 11px); }
+.hero-proof > span      { font-size: clamp(9px,  0.9vw, 11px); }
+.demo-label             { font-size: clamp(11px, 1.1vw, 13px); }
+.network-label          { font-size: clamp(11px, 1.1vw, 13px); }
+.wallet-button          { font-size: clamp(11px, 1.1vw, 13px); }
+.eyebrow                { font-size: clamp(9px,  0.9vw, 11px); }
+.rail-footnote          { font-size: clamp(9px,  0.9vw, 11px); }
+.page-footer            { font-size: clamp(10px, 1vw,   12px); }
+.friend-info > strong   { font-size: clamp(12px, 1.2vw, 14px); }
+.friend-info > p        { font-size: clamp(11px, 1.1vw, 13px); }
+.friend-info > strong > span { font-size: clamp(10px, 1vw, 12px); }
+.friend-info > small    { font-size: clamp(10px, 1vw, 12px); }
+.notification-list strong { font-size: clamp(13px, 1.3vw, 15px); }
+.notification-list small  { font-size: clamp(11px, 1.1vw, 13px); }
+.join-banner strong     { font-size: clamp(12px, 1.2vw, 14px); }
+.join-banner small      { font-size: clamp(10px, 1vw, 12px); }
+.join-action            { font-size: clamp(10px, 1vw, 12px); }
+.panel-link             { font-size: clamp(10px, 1vw, 12px); }
+.daily-note p           { font-size: clamp(11px, 1.1vw, 13px); }
+.daily-note small       { font-size: clamp(9px,  0.9vw, 10px); }
+.segment-control button { font-size: clamp(10px, 1vw, 12px); }
+.calendar-day           { font-size: clamp(10px, 1vw, 12px); }
+.calendar-legend        { font-size: clamp(9px,  0.9vw, 11px); }
+.day-label              { font-size: clamp(9px,  0.9vw, 11px); }
+.sidebar-motivation strong { font-size: clamp(14px, 1.4vw, 18px); }
+.sidebar-motivation p   { font-size: clamp(11px, 1.1vw, 13px); }
+.install-button         { font-size: clamp(11px, 1.1vw, 13px); }
+.profile strong         { font-size: clamp(12px, 1.2vw, 14px); }
+.profile small          { font-size: clamp(10px, 1vw, 12px); }
+.nav-item               { font-size: clamp(12px, 1.2vw, 14px); }
+.sidebar-create         { font-size: clamp(12px, 1.2vw, 14px); }
+.proof-privacy          { font-size: clamp(10px, 1vw, 12px); }
+.stat-card > div > span { font-size: clamp(11px, 1.1vw, 13px); }
+.stat-demo              { font-size: clamp(9px,  0.9vw, 10px); }
+.streak-bubble          { font-size: clamp(9px,  0.9vw, 11px); }
+.flow-steps             { font-size: clamp(10px, 1vw, 12px); }
+.approval-card .friend-info > strong { font-size: clamp(13px, 1.3vw, 15px); }
+.approval-card .friend-info > p      { font-size: clamp(11px, 1.1vw, 13px); }
+.proof-note             { font-size: clamp(12px, 1.2vw, 14px); }
+.approval-card > .proof-note { font-size: clamp(11px, 1.1vw, 13px); }
+.setting-row            { font-size: clamp(13px, 1.3vw, 15px); }
+.settings-profile h3    { font-size: clamp(16px, 1.6vw, 20px); }
+.settings-profile p     { font-size: clamp(12px, 1.2vw, 14px); }
+.mobile-nav button      { font-size: clamp(10px, 2.4vw, 12px); }
+.mobile-nav button i    { font-size: clamp(9px,  2vw, 11px); }
+
+/* =========================================================
+   MOBILE (≤ 560px) — boost all previously tiny sizes
+   ========================================================= */
+@media (max-width: 560px) {
+  html { font-size: 14px; }
+
+  /* Bigger touch targets */
+  .icon-button,
+  .notification-button { min-width: 40px; min-height: 40px; }
+
+  /* Mobile nav */
+  .mobile-nav { bottom: 8px; left: 6px; right: 6px; padding: 8px 4px; }
+  .mobile-nav button { min-height: 56px; font-size: 11px; gap: 5px; border-radius: 14px; }
+
+  /* Habit card */
+  .habit-card h3            { font-size: 15px; }
+  .habit-description        { font-size: 12px; }
+  .habit-progress-label strong { font-size: 12px; }
+  .habit-progress-label > span { font-size: 11px; }
+  .habit-finances > span    { font-size: 11px; }
+  .habit-finances strong    { font-size: 13px; }
+  .checkin-button           { font-size: 12px; min-height: 38px; padding: 9px 12px; }
+  .status-tag               { font-size: 10px; }
+  .mini-crew .avatar        { width: 22px; height: 22px; font-size: 8px; }
+  .mini-crew > span         { font-size: 11px; }
+  .habit-icon               { width: 42px; height: 42px; }
+
+  /* Stats */
+  .stat-card > div > span   { font-size: 11px; }
+  .stat-card strong         { font-size: 19px; }
+
+  /* Hero */
+  .hero-content h2          { font-size: clamp(26px, 9vw, 36px); letter-spacing: -1.2px; }
+  .hero-content > p         { font-size: 13px; line-height: 1.65; }
+
+  /* Section headings */
+  .section-heading h2       { font-size: 15px; }
+  .challenge-heading h2     { font-size: 20px; }
+  .challenge-heading p      { font-size: 12px; }
+  .friends-page > .section-heading h2 { font-size: 22px; }
+  .friends-page > .section-description { font-size: 13px; }
+
+  /* Friends */
+  .friend-info > strong     { font-size: 13px; }
+  .friend-info > p          { font-size: 12px; }
+  .join-banner strong       { font-size: 13px; }
+  .join-banner small        { font-size: 11px; }
+  .approve-icon             { width: 36px; height: 36px; }
+
+  /* Segment control */
+  .segment-control button   { font-size: 11px; padding: 9px 10px; }
+
+  /* Calendar */
+  .calendar-day             { font-size: 11px; }
+  .day-label                { font-size: 10px; margin-bottom: 5px; }
+  .calendar-legend          { font-size: 10px; }
+
+  /* Modal */
+  .modal-heading h2         { font-size: 24px; }
+  .modal-heading p          { font-size: 13px; }
+  .eyebrow                  { font-size: 10px; }
+  .field-label              { font-size: 13px; }
+
+  /* Settings */
+  .setting-row              { font-size: 14px; }
+  .settings-profile h3      { font-size: 18px; }
+  .settings-profile p       { font-size: 13px; }
+
+  /* Daily note */
+  .daily-note p             { font-size: 13px; }
+
+  /* Notifications */
+  .notification-list strong { font-size: 14px; }
+  .notification-list small  { font-size: 12px; }
+
+  /* Progress ring */
+  .progress-ring strong     { font-size: 20px; }
+  .momentum-content > div > strong { font-size: 13px; }
+  .momentum-content p       { font-size: 12px; }
+
+  /* Profile */
+  .profile strong           { font-size: 13px; }
+  .profile small            { font-size: 11px; }
+  .page-footer              { font-size: 11px; }
+
+  /* Approval cards */
+  .approval-card .friend-info > strong { font-size: 14px; }
+  .approval-card .friend-info > p      { font-size: 12px; }
+
+  /* Empty state */
+  .empty-state h3           { font-size: 16px; }
+  .empty-state p            { font-size: 13px; }
+
+  /* Wallet button */
+  .wallet-button            { font-size: 12px; padding: 10px 12px; }
+
+  /* Mobile brand */
+  .mobile-brand             { font-size: 15px !important; }
+
+  /* Greeting emoji */
+  .greeting > span          { font-size: 16px; }
+}
+
+/* =========================================================
+   TABLET (641px – 979px) — 2-column grids, readable fonts
+   ========================================================= */
+@media (min-width: 641px) and (max-width: 979px) {
+  html { font-size: 14px; }
+
+  .approval-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-grid    { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .habit-grid    { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .habit-description  { font-size: 12px; }
+  .checkin-button     { font-size: 12px; }
+  .stat-card > div > span { font-size: 11px; }
+  .section-heading h2 { font-size: 15px; }
+  .challenge-heading h2 { font-size: 18px; }
+  .hero-content h2    { font-size: clamp(28px, 5vw, 40px); }
+  .modal-heading h2   { font-size: 24px; }
+  .page-heading h1    { font-size: clamp(26px, 4.5vw, 34px); }
+  .page-footer        { font-size: 11px; }
+
+  /* Toast: center on tablet (no sidebar) */
+  .toast              { left: 50%; transform: translateX(-50%); }
+}
+
+/* =========================================================
+   TOUCH DEVICE: 44px minimum tap targets + no hover effects
+   ========================================================= */
+@media (hover: none) and (pointer: coarse) {
+  .icon-button,
+  .habit-details,
+  .approve-icon,
+  .nav-item {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .checkin-button { min-height: 40px; }
+
+  /* Suppress hover transformations on touch */
+  .habit-card:hover {
+    transform: none;
+    border-color: rgba(146, 170, 255, 0.12);
+    box-shadow: 0 18px 30px rgba(2, 6, 15, 0.12);
+  }
+
+  button { touch-action: manipulation; }
+}
