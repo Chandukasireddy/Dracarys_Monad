@@ -28,11 +28,27 @@ app.add_middleware(
 from .services.storage import UPLOAD_DIR
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
+from fastapi import Request
+
+@app.middleware("http")
+async def fix_vercel_path_middleware(request: Request, call_next):
+    path = request.scope.get("path", "")
+    for prefix in ("/api/index.py", "/api/index"):
+        if path.startswith(prefix):
+            new_path = path[len(prefix):]
+            if not new_path.startswith("/"):
+                new_path = "/" + new_path
+            request.scope["path"] = new_path
+            break
+    return await call_next(request)
+
 # Include Streaks router
 app.include_router(streaks_router)
 
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/index.py")
 def root():
     return {
         "project": "Dracarys 🐉🔥",
