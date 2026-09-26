@@ -66,6 +66,26 @@ export const DRACARYS_ABI = [
     type: 'event',
   },
   {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'uint256', name: 'streakId', type: 'uint256' },
+      { indexed: true, internalType: 'address', name: 'winner', type: 'address' },
+      { indexed: false, internalType: 'uint256', name: 'reward', type: 'uint256' },
+    ],
+    name: 'CompletionRewardClaimed',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'uint256', name: 'streakId', type: 'uint256' },
+      { indexed: true, internalType: 'address', name: 'creator', type: 'address' },
+      { indexed: false, internalType: 'uint256', name: 'refund', type: 'uint256' },
+    ],
+    name: 'StreakCancelled',
+    type: 'event',
+  },
+  {
     inputs: [],
     name: 'SECONDS_PER_DAY',
     outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],

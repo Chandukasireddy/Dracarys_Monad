@@ -57,8 +57,16 @@ export function useChallengeContract() {
       );
     },
 
-    joinStreak: (streakId: bigint, dailyStake: string, duration: number) => {
-      const totalDeposit = parseEther(dailyStake) * BigInt(duration);
+    joinStreak: async (streakId: bigint) => {
+      if (!contractAddress || !publicClient) throw new Error('Dracarys contract not configured.');
+      // Read the exact deposit from the escrow so the joiner's stake always matches the creator's.
+      const streak = await publicClient.readContract({
+        address: contractAddress,
+        abi: DRACARYS_ABI,
+        functionName: 'streaks',
+        args: [streakId],
+      });
+      const totalDeposit = streak[3] * streak[4];
       return execute(
         encodeFunctionData({
           abi: DRACARYS_ABI,

@@ -94,4 +94,88 @@ describe("DracarysEscrow 🐉🔥", function () {
 
     expect(balanceAfter - balanceBefore + gasCost).to.equal(DAILY_STAKE);
   });
+
+  async function skipDays(days) {
+    await ethers.provider.send("evm_increaseTime", [days * 24 * 60 * 60]);
+    await ethers.provider.send("evm_mine");
+  }
+
+  it("Should move a loser's missed-day stake to the winner exactly once", async function () {
+    await dracarys.igniteStreak("Two-Day Challenge", DAILY_STAKE, 2, { value: DAILY_STAKE * 2n });
+    await dracarys.connect(friend1).joinStreak(1, { value: DAILY_STAKE * 2n });
+
+    // Owner shows up on day 1, friend1 (the loser) does not.
+    await dracarys.submitProof(1, "ipfs://day1");
+    await dracarys.connect(friend1).approveCheckIn(1, owner.address, 1);
+    await skipDays(1);
+
+    const before = await ethers.provider.getBalance(owner.address);
+    await expect(dracarys.connect(friend2).burnSlacker(1, friend1.address, 1))
+      .to.emit(dracarys, "StakeBurned")
+      .withArgs(1, friend1.address, 1, DAILY_STAKE);
+    expect((await ethers.provider.getBalance(owner.address)) - before).to.equal(DAILY_STAKE);
+    expect((await dracarys.participants(1, friend1.address)).isBurned).to.equal(true);
+
+    // The same missed day cannot be burned again to drain the pool.
+    await expect(dracarys.burnSlacker(1, friend1.address, 1)).to.be.revertedWith(
+      "Dracarys: Day already settled"
+    );
+    // Days outside the streak cannot be burned either.
+    await expect(dracarys.burnSlacker(1, friend1.address, 0)).to.be.revertedWith(
+      "Dracarys: Invalid day"
+    );
+  });
+
+  it("Should not pay out a day that was already burned", async function () {
+    await dracarys.igniteStreak("Two-Day Challenge", DAILY_STAKE, 2, { value: DAILY_STAKE * 2n });
+    await dracarys.connect(friend1).joinStreak(1, { value: DAILY_STAKE * 2n });
+
+    await dracarys.connect(friend1).submitProof(1, "ipfs://late");
+    await skipDays(1);
+    await dracarys.burnSlacker(1, friend1.address, 1);
+
+    await expect(dracarys.approveCheckIn(1, friend1.address, 1)).to.be.revertedWith(
+      "Dracarys: Day already settled"
+    );
+  });
+
+  it("Should give the winner the loser's remaining stake at completion", async function () {
+    await dracarys.igniteStreak("Two-Day Challenge", DAILY_STAKE, 2, { value: DAILY_STAKE * 2n });
+    await dracarys.connect(friend1).joinStreak(1, { value: DAILY_STAKE * 2n });
+
+    await dracarys.submitProof(1, "ipfs://day1");
+    await dracarys.connect(friend1).approveCheckIn(1, owner.address, 1);
+    await skipDays(1);
+    await dracarys.submitProof(1, "ipfs://day2");
+    await dracarys.connect(friend1).approveCheckIn(1, owner.address, 2);
+    await skipDays(1);
+
+    // Nobody burned friend1's days, so their full 2-day stake is still in the pool.
+    const before = await ethers.provider.getBalance(owner.address);
+    const receipt = await (await dracarys.claimCompletionReward(1)).wait();
+    const gas = receipt.gasUsed * receipt.gasPrice;
+    expect((await ethers.provider.getBalance(owner.address)) - before + gas).to.equal(DAILY_STAKE * 2n);
+    expect((await dracarys.streaks(1)).totalPool).to.equal(0);
+  });
+
+  it("Should split the pool evenly between multiple winners", async function () {
+    await dracarys.igniteStreak("One-Day Challenge", DAILY_STAKE, 1, { value: DAILY_STAKE });
+    await dracarys.connect(friend1).joinStreak(1, { value: DAILY_STAKE });
+    await dracarys.connect(friend2).joinStreak(1, { value: DAILY_STAKE });
+
+    await dracarys.submitProof(1, "ipfs://a");
+    await dracarys.connect(friend1).submitProof(1, "ipfs://b");
+    await dracarys.connect(friend2).approveCheckIn(1, owner.address, 1);
+    await dracarys.connect(friend2).approveCheckIn(1, friend1.address, 1);
+    await skipDays(1);
+
+    // friend2 (the loser) left DAILY_STAKE in the pool; both winners get half.
+    await expect(dracarys.claimCompletionReward(1))
+      .to.emit(dracarys, "CompletionRewardClaimed")
+      .withArgs(1, owner.address, DAILY_STAKE / 2n);
+    await expect(dracarys.connect(friend1).claimCompletionReward(1))
+      .to.emit(dracarys, "CompletionRewardClaimed")
+      .withArgs(1, friend1.address, DAILY_STAKE / 2n);
+    expect((await dracarys.streaks(1)).totalPool).to.equal(0);
+  });
 });

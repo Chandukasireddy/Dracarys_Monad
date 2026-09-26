@@ -53,6 +53,8 @@ contract DracarysEscrow {
     // streakId => userAddress => dayIndex => approverAddress => hasApproved
     mapping(uint256 => mapping(address => mapping(uint256 => mapping(address => bool)))) public hasApproved;
     mapping(uint256 => mapping(address => bool)) public completionRewardClaimed;
+    // streakId => userAddress => dayIndex => missed day already burned
+    mapping(uint256 => mapping(address => mapping(uint256 => bool))) public dayBurned;
 
     // Events for Monad execution event streaming (monadNewHeads / monadLogs)
     event StreakIgnited(uint256 indexed streakId, string title, address indexed creator, uint256 dailyStake, uint256 totalDays);
@@ -171,6 +173,7 @@ contract DracarysEscrow {
         require(bytes(proof.proofUri).length > 0, "Dracarys: No proof to approve");
         require(!proof.approved, "Dracarys: Day already approved");
         require(!hasApproved[_streakId][_friend][_day][msg.sender], "Dracarys: Already approved by you");
+        require(!dayBurned[_streakId][_friend][_day], "Dracarys: Day already settled");
 
         hasApproved[_streakId][_friend][_day][msg.sender] = true;
         proof.approvalCount++;
@@ -209,6 +212,8 @@ contract DracarysEscrow {
         HabitStreak storage s = streaks[_streakId];
         Participant storage p = participants[_streakId][_slacker];
         require(p.hasJoined, "Dracarys: User not in streak");
+        require(_day >= 1 && _day <= s.totalDays, "Dracarys: Invalid day");
+        require(!dayBurned[_streakId][_slacker][_day], "Dracarys: Day already settled");
 
         uint256 currentDay = ((block.timestamp - s.startTime) / SECONDS_PER_DAY) + 1;
         require(currentDay > _day, "Dracarys: Day is not over yet");
@@ -218,6 +223,9 @@ contract DracarysEscrow {
 
         uint256 burnedAmount = s.dailyStake;
         require(s.totalPool >= burnedAmount, "Dracarys: Insufficient pool balance");
+
+        dayBurned[_streakId][_slacker][_day] = true;
+        p.isBurned = true;
 
         // Distribute burned stake among faithful members who have active check-ins
         address[] memory members = streakMembers[_streakId];
@@ -259,7 +267,11 @@ contract DracarysEscrow {
         address[] memory members = streakMembers[_streakId];
         for (uint256 i = 0; i < members.length; i++) {
             Participant storage participant = participants[_streakId][members[i]];
-            if (!participant.isBurned && participant.claimedDays >= s.totalDays) winnerCount++;
+            if (
+                !participant.isBurned &&
+                participant.claimedDays >= s.totalDays &&
+                !completionRewardClaimed[_streakId][members[i]]
+            ) winnerCount++;
         }
         require(winnerCount > 0, "Dracarys: No winners");
 

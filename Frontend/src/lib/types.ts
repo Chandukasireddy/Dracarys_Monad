@@ -25,6 +25,9 @@ export type Approval = {
   streak: number;
   note: string;
   approved: boolean;
+  address?: string;
+  onchainId?: string;
+  day?: number;
 };
 export type UserProfile = {
   id: string;

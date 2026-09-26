@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useConnection } from 'wagmi';
-import { parseEventLogs } from 'viem';
+import { parseEventLogs, formatEther } from 'viem';
 import {
   Flame,
   Zap,
@@ -20,11 +20,12 @@ import {
   Volume2,
   VolumeX,
   Copy,
-  ShieldCheck,
   X,
   Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
-import { useStreaker, stakeTotal } from '@/hooks/use-streaker';
+import { useStreaker, stakeTotal, type RemoteStreak } from '@/hooks/use-streaker';
 import { Challenge, dayKey, challengeDates, longestRun, currentRun } from '@/lib/types';
 import { FlameArt } from './flame';
 import { HabitCard } from './habit-card';
@@ -40,6 +41,7 @@ import { useChallengeContract } from '@/hooks/use-challenge-contract';
 import { DRACARYS_ABI } from '@/lib/contract';
 
 type Tab = 'streaks' | 'friends' | 'progress';
+const SIDEBAR_KEY = 'streaker-sidebar-collapsed';
 type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | null;
 export function StreakerApp() {
   const store = useStreaker();
@@ -52,7 +54,8 @@ export function StreakerApp() {
     [toast, setToast] = useState(''),
     [filter, setFilter] = useState<'active' | 'completed'>('active'),
     [detailsInvited, setDetailsInvited] = useState<Record<string, boolean>>({}),
-    [invite, setInvite] = useState('');
+    [invite, setInvite] = useState(''),
+    [collapsed, setCollapsed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipe = useRef<{ x: number; y: number } | null>(null);
   const notify = (message: string) => {
@@ -61,6 +64,9 @@ export function StreakerApp() {
     timer.current = setTimeout(() => setToast(''), 5500);
   };
   useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(SIDEBAR_KEY) === '1');
+    } catch {}
     const code = new URLSearchParams(window.location.search).get('invite');
     if (code) {
       setInvite(code);
@@ -89,7 +95,6 @@ export function StreakerApp() {
     (sum, c) => sum + Number(stakeTotal(c.dailyStake, c.duration - c.completed)),
     0,
   );
-  const featured = store.challenges[0];
   const createChallenge = async (
     input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>,
   ) => {
@@ -107,13 +112,30 @@ export function StreakerApp() {
     }
     return store.createChallenge({ ...input, onchainId });
   };
+  const joinOnchain = async (streak: RemoteStreak) => {
+    if (!streak.onchain_id) return; // demo challenge without an escrow
+    if (!isConnected) throw new Error('Connect your wallet to lock your stake for this challenge.');
+    await contract.joinStreak(BigInt(streak.onchain_id));
+    notify('Your stake is locked in the Monad escrow.');
+  };
   const claimCheckIn = async (proofUri: string) => {
     if (isConnected) {
       if (!checkIn?.onchainId) {
         throw new Error('This challenge is demo-only. Create a new challenge with your wallet connected.');
       }
-      await contract.submitProof(BigInt(checkIn.onchainId), proofUri);
+      const receipt = await contract.submitProof(BigInt(checkIn.onchainId), proofUri);
       notify('Check-in confirmed on Monad Testnet.');
+      // Group check-ins only pay out after a friend approves, so friends need to see the proof.
+      const day = parseEventLogs({ abi: DRACARYS_ABI, eventName: 'ProofSubmitted', logs: receipt.logs })[0]
+        ?.args.day;
+      if (checkIn.members > 1 && day && address) {
+        try {
+          const proof = await fetch(proofUri).then((res) => res.blob());
+          await store.uploadProof(checkIn.id, proof, Number(day), address);
+        } catch (error) {
+          notify(error instanceof Error ? error.message : 'Friends could not be notified.');
+        }
+      }
     }
     return store.checkIn(checkIn?.id || '');
   };
@@ -123,8 +145,18 @@ export function StreakerApp() {
       return;
     }
     try {
-      await contract.claimCompletionReward(BigInt(details.onchainId));
-      notify('Winner reward claimed from Monad Testnet.');
+      const receipt = await contract.claimCompletionReward(BigInt(details.onchainId));
+      // MetaMask does not list contract payouts under Activity, so say what arrived here.
+      const reward = parseEventLogs({
+        abi: DRACARYS_ABI,
+        eventName: 'CompletionRewardClaimed',
+        logs: receipt.logs,
+      })[0]?.args.reward;
+      notify(
+        reward !== undefined
+          ? `You won ${formatEther(reward)} MON. It's in your wallet balance now.`
+          : 'Winner reward claimed from Monad Testnet.',
+      );
       setDetails(null);
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Reward claim failed.');
@@ -137,18 +169,36 @@ export function StreakerApp() {
       try {
         await contract.cancelStreak(BigInt(details.onchainId));
       } catch (error) {
-        notify(error instanceof Error ? error.message : 'The challenge could not be cancelled.');
-        return;
+        const reason = error instanceof Error ? error.message : 'The refund failed.';
+        // Group or already-started challenges cannot be refunded; the stake stays in escrow.
+        if (
+          !window.confirm(
+            `Your stake could not be refunded on-chain (${reason.split('\n')[0]}). Delete anyway? Any locked MON stays in the escrow.`,
+          )
+        )
+          return;
       }
     }
-    store.deleteChallenge(details.id);
+    try {
+      await store.deleteChallenge(details.id);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'The challenge could not be deleted.');
+      return;
+    }
     setDetails(null);
-    notify('Challenge deleted from your dashboard.');
+    notify('Challenge deleted.');
   };
   const approve = (id: string) => {
     store.approveFriend(id);
     navigator.vibrate?.(30);
     notify('Approved. A little support, a stronger streak.');
+  };
+  const toggleSidebar = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0');
+    } catch {}
   };
   const go = (next: Tab) => {
     setTab(next);
@@ -172,55 +222,61 @@ export function StreakerApp() {
       </div>
     );
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Streaker home">
-          <span className="brand-icon">
-            <Flame fill="currentColor" size={23} />
-          </span>
-          streaker<span className="brand-period">.</span>
-        </a>
-        <div className="sidebar-caption">A LITTLE EVERY DAY.</div>
+        <div className="sidebar-header">
+          <a className="brand" href="/" aria-label="Streaker home">
+            <span className="brand-icon">
+              <Flame fill="currentColor" size={23} />
+            </span>
+            <span className="brand-text">
+              streaker<span className="brand-period">.</span>
+            </span>
+          </a>
+          <button
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </div>
         <nav aria-label="Main navigation">
           {tabs.map((t) => (
             <button
               key={t.id}
               className={`nav-item ${tab === t.id ? 'active' : ''}`}
               aria-current={tab === t.id ? 'page' : undefined}
+              aria-label={t.label}
+              title={collapsed ? t.label : undefined}
               onClick={() => go(t.id)}
             >
               <t.icon size={19} />
-              {t.label}
+              <span className="nav-label">{t.label}</span>
               {t.id === 'friends' && pending > 0 && <span className="nav-count">{pending}</span>}
-              {t.id === 'streaks' && <span className="nav-active-dot" />}
             </button>
           ))}
         </nav>
-        <button className="sidebar-create" onClick={() => setDialog('create')}>
-          <Plus size={18} /> Create a challenge
+        <button
+          className="sidebar-create"
+          onClick={() => setDialog('create')}
+          aria-label="Create a challenge"
+          title={collapsed ? 'Create a challenge' : undefined}
+        >
+          <Plus size={18} /> <span className="nav-label">Create a challenge</span>
         </button>
         <div className="sidebar-bottom">
-          <div className="sidebar-motivation">
-            <div className="tiny-bolt">
-              <Zap size={18} fill="currentColor" />
-            </div>
-            <strong>
-              Big things.
-              <br />
-              Small beginnings.
-            </strong>
-            <p>
-              Your future self is
-              <br />
-              already thanking you.
-            </p>
-            <span className="motivation-line" />
-          </div>
           <PwaControl notify={notify} />
-          <button className="profile" onClick={() => setDialog('account')}>
+          <button
+            className="profile"
+            onClick={() => setDialog('account')}
+            title={collapsed ? store.user?.display_name || 'Sign in' : undefined}
+          >
             <span className={`avatar profile-avatar ${store.user?.avatar_color || 'purple'}`}>
               {store.user?.initials || (store.user ? store.user.display_name.slice(0, 2).toUpperCase() : '?')}
             </span>
@@ -235,7 +291,6 @@ export function StreakerApp() {
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumb">
-            <span>STREAKER · HABIT STAKING ESCROW</span>
             <button
               className="mobile-brand"
               onClick={() => setDialog('account')}
@@ -271,7 +326,7 @@ export function StreakerApp() {
                   {store.user.initials || store.user.display_name.slice(0, 2).toUpperCase()}
                 </span>
                 <span style={{ fontSize: '12.5px', fontWeight: 600 }}>{store.user.display_name}</span>
-                <span style={{ fontSize: '11px', color: '#ff7a45' }}>{store.user.streak_count || 0} 🔥</span>
+                <span style={{ fontSize: '11px', color: '#ff7a45' }}>{currentStreak} 🔥</span>
               </button>
             ) : (
               <button
@@ -372,10 +427,7 @@ export function StreakerApp() {
               <div>
                 <span>Longest streak</span>
                 <strong>
-                  {longest} <small>days</small>
-                  <em>
-                    Looking good <span>↗</span>
-                  </em>
+                  {longest} <small>{longest === 1 ? 'day' : 'days'}</small>
                 </strong>
               </div>
             </div>
@@ -425,15 +477,10 @@ export function StreakerApp() {
                       <span /> CONSISTENCY IS YOUR SUPERPOWER
                     </span>
                     <h2>
-                      {currentStreak} days.
+                      {currentStreak} {currentStreak === 1 ? 'day' : 'days'}.
                       <br />
                       <span>One stronger you.</span>
                     </h2>
-                    <p>
-                      You didn’t come this far to only come this far.
-                      <br />
-                      Your next check-in is a promise kept.
-                    </p>
                     <div className="hero-footer">
                       {store.challenges.length === 0 ? (
                         <button
@@ -452,20 +499,15 @@ export function StreakerApp() {
                           {remaining.length ? <ArrowUpRight size={17} /> : <Check size={17} />}
                         </button>
                       )}
-                      <div className="hero-proof">
-                        <span style={{ fontSize: '12.5px', color: '#cac9d1' }}>Sub-second 0.3s escrow on Monad.</span>
-                      </div>
                     </div>
                   </div>
                   <div className="hero-visual">
                     <div className="orbit orbit-one" />
                     <div className="orbit orbit-two" />
-                    <span className="spark spark-one">✦</span>
-                    <span className="spark spark-two">✧</span>
-                    <span className="spark spark-three">✦</span>
                     <FlameArt />
                     <span className="streak-bubble">
-                      <Flame size={14} fill="currentColor" /> {currentStreak} DAY STREAK
+                      <Flame size={14} fill="currentColor" /> {currentStreak}{' '}
+                      {currentStreak === 1 ? 'DAY' : 'DAYS'} STREAK
                     </span>
                   </div>
                 </section>
@@ -566,7 +608,7 @@ export function StreakerApp() {
                               style={{ fontSize: '13px', padding: '8px 14px' }}
                               onClick={async () => {
                                 try {
-                                  await store.respondToInvitation(inv.id, true);
+                                  await store.respondToInvitation(inv.id, true, joinOnchain);
                                   notify(
                                     `Challenge accepted! You've joined "${inv.streak_title}" 🔥`,
                                   );
@@ -674,13 +716,6 @@ export function StreakerApp() {
                     </span>
                   </button>
                 </section>
-                <div className="daily-note">
-                  <span>✳</span>
-                  <p>
-                    “You do not rise to the level of your goals. You fall to the level of your
-                    systems.”<small>JAMES CLEAR · ATOMIC HABITS</small>
-                  </p>
-                </div>
               </div>
               <aside className="dashboard-rail">
                 <section className="panel today-panel">
@@ -721,17 +756,6 @@ export function StreakerApp() {
                       </span>
                     </div>
                   </div>
-                  {featured?.earnedUsd !== undefined && (
-                    <div className="sample-earnings">
-                      <span>
-                        Earned back <small>DEMO USD</small>
-                      </span>
-                      <strong>
-                        ${featured.earnedUsd.toFixed(2)}{' '}
-                        <span>/ ${featured.lockedUsd?.toFixed(2)} locked</span>
-                      </strong>
-                    </div>
-                  )}
                 </section>
                 <Calendar checkedDates={checkedDates} />
                 <FriendApprovals
@@ -740,10 +764,6 @@ export function StreakerApp() {
                   onApprove={approve}
                   onViewAll={() => go('friends')}
                 />
-                <div className="rail-footnote">
-                  <ShieldCheck size={14} />
-                  <span>Your habits. Your commitment. Your growth.</span>
-                </div>
               </aside>
             </div>
           ) : tab === 'friends' ? (
@@ -809,14 +829,6 @@ export function StreakerApp() {
               </div>
             </div>
           )}
-          <footer className="page-footer">
-            <span>
-              <Zap size={13} fill="currentColor" /> BUILT ON MONAD. BUILT FOR YOU.
-            </span>
-            <span>
-              Small stakes. Stronger habits. <span className="footer-star">✦</span>
-            </span>
-          </footer>
         </main>
       </div>
       <nav className="mobile-nav" aria-label="Mobile navigation">
@@ -869,10 +881,14 @@ export function StreakerApp() {
         <JoinChallenge
           initialCode={invite}
           onClose={() => setDialog(null)}
-          onJoin={(code) => {
-            store.joinChallenge(code);
-            go('streaks');
-            notify('You’re in. Your next streak starts today.');
+          onJoin={async (code) => {
+            try {
+              await store.joinChallenge(code, joinOnchain);
+              go('streaks');
+              notify('You’re in. Your next streak starts today.');
+            } catch (error) {
+              notify(error instanceof Error ? error.message : 'Could not join this challenge.');
+            }
           }}
         />
       )}
@@ -909,18 +925,7 @@ export function StreakerApp() {
               <span>Earned back</span>
               <strong>{stakeTotal(details.dailyStake, details.completed)} MON</strong>
             </div>
-            {details.earnedUsd !== undefined && (
-              <div>
-                <span>Illustrative USD value</span>
-                <strong>
-                  ${details.earnedUsd.toFixed(2)} / ${details.lockedUsd?.toFixed(2)} locked
-                </strong>
-              </div>
-            )}
           </div>
-          <p className="helper">
-            Synced with Neon PostgreSQL & Monad Testnet escrow contract.
-          </p>
           {details.completed >= details.duration && details.onchainId && isConnected && (
             <button className="button primary full" onClick={claimCompletionReward}>
               <Wallet size={17} /> Claim winner reward

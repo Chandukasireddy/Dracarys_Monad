@@ -4093,3 +4093,89 @@ html {
   .icon-button   { width: 38px; height: 38px; }
   .button        { min-height: 44px; font-size: 13px; }
 }
+
+/* Collapsible sidebar (desktop only; small screens use the bottom nav) */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.sidebar-toggle {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--text-soft);
+  border: 1px solid transparent;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(124, 92, 255, 0.2);
+}
+
+.sidebar,
+.workspace {
+  transition:
+    width 0.2s ease,
+    margin-left 0.2s ease,
+    padding 0.2s ease;
+}
+
+.sidebar-collapsed .sidebar {
+  width: 76px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+@media (min-width: 981px) {
+  .sidebar-collapsed .workspace {
+    margin-left: 76px;
+  }
+}
+
+.sidebar-collapsed .sidebar-header {
+  flex-direction: column;
+}
+
+.sidebar-collapsed .brand-text,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .install-button,
+.sidebar-collapsed .profile > span:not(.avatar),
+.sidebar-collapsed .profile > svg {
+  display: none;
+}
+
+.sidebar-collapsed .nav-item,
+.sidebar-collapsed .sidebar-create,
+.sidebar-collapsed .profile {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar-collapsed .nav-item {
+  position: relative;
+}
+
+.sidebar-collapsed .nav-count {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .workspace {
+    transition: none;
+  }
+}

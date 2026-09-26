@@ -2,10 +2,23 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { parseEther, formatEther } from 'viem';
 import { initialState } from '@/lib/mock-data';
-import { Challenge, DemoState, dayKey, challengeDates, UserProfile, Approval } from '@/lib/types';
+import { Challenge, DemoState, dayKey, challengeDates, UserProfile, Approval, HabitKind } from '@/lib/types';
 
 const STORAGE = 'dracarys-session-v2';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dracarys-monad-z59m.vercel.app';
+
+export type RemoteStreak = {
+  id: string;
+  onchain_id?: string | null;
+  title: string;
+  description?: string;
+  kind?: HabitKind;
+  duration?: number;
+  daily_stake?: string;
+  invite_code?: string;
+  member_count?: number;
+};
+type OnchainJoin = (streak: RemoteStreak) => Promise<void>;
 
 function generateId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
@@ -60,21 +73,35 @@ export function useStreaker() {
       if (streaksRes && streaksRes.ok) {
         const remoteStreaks = await streaksRes.json();
         if (Array.isArray(remoteStreaks)) {
-          update((s) => ({
-            ...s,
-            challenges: remoteStreaks.map((rs: any) => ({
-              id: rs.id,
-              title: rs.title,
-              description: rs.description || 'Kindle your flame. A stronger you.',
-              kind: rs.kind || 'fitness',
-              duration: rs.duration || 7,
-              dailyStake: rs.daily_stake || '0.05',
-              completed: rs.completed_days || 0,
-              inviteCode: rs.invite_code || `DRA-${rs.id.slice(0, 6).toUpperCase()}`,
-              members: rs.member_count || 1,
-              checkInDates: [],
-            })),
-          }));
+          update((s) => {
+            const remoteIds = new Set(remoteStreaks.map((rs: any) => rs.id));
+            return {
+              ...s,
+              challenges: [
+                ...remoteStreaks.map((rs: any): Challenge => {
+                  // Check-in history lives on this device; keep it so streaks survive a refresh.
+                  const local = s.challenges.find((c) => c.id === rs.id);
+                  const member = rs.members?.find((m: any) => m.user_id === user.id);
+                  return {
+                    id: rs.id,
+                    title: rs.title,
+                    description: rs.description || 'Kindle your flame. A stronger you.',
+                    kind: rs.kind || 'fitness',
+                    duration: rs.duration || 7,
+                    dailyStake: rs.daily_stake || '0.05',
+                    completed: local?.completed ?? member?.completed_days ?? 0,
+                    checkInDates: local?.checkInDates,
+                    lastCheckIn: local?.lastCheckIn,
+                    inviteCode: rs.invite_code || `DRA-${rs.id.slice(0, 6).toUpperCase()}`,
+                    members: rs.member_count || 1,
+                    onchainId: rs.onchain_id || local?.onchainId,
+                  };
+                }),
+                // Challenges the backend never saved (e.g. it was offline) stay on this device.
+                ...s.challenges.filter((c) => !c.id.startsWith('streak-') && !remoteIds.has(c.id)),
+              ],
+            };
+          });
         }
       }
 
@@ -91,6 +118,9 @@ export function useStreaker() {
             streak: p.day_index,
             note: p.notes || 'Daily proof uploaded on Monad',
             approved: p.status === 'APPROVED',
+            address: p.participant_address || undefined,
+            onchainId: p.onchain_id || undefined,
+            day: p.day_index,
           }));
           update((s) => ({ ...s, approvals: mapped }));
         }
@@ -204,6 +234,7 @@ export function useStreaker() {
             daily_stake: input.dailyStake,
             creator_id: user?.id || 'creator',
             creator_address: user?.wallet_address || undefined,
+            onchain_id: input.onchainId,
           }),
         });
         if (res.ok) {
@@ -232,7 +263,7 @@ export function useStreaker() {
   );
 
   const joinChallenge = useCallback(
-    async (code: string) => {
+    async (code: string, joinOnchain?: OnchainJoin) => {
       const normalized = code.trim().toUpperCase();
       if (current.current.joinedCodes.includes(normalized))
         throw new Error('You have already joined this challenge.');
@@ -242,42 +273,46 @@ export function useStreaker() {
       const user = current.current.user;
 
       // Query backend for real challenge with this invite code
+      let remote: RemoteStreak | null = null;
       try {
         const res = await fetch(`${API_URL}/api/streaks/invite/${encodeURIComponent(normalized)}`);
-        if (res.ok) {
-          const remote = await res.json();
-          // Join on backend
-          await fetch(`${API_URL}/api/streaks/${remote.id}/join`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: user?.id || 'anon-joiner',
-              wallet_address: user?.wallet_address || undefined,
-            }),
-          }).catch(() => null);
-
-          const challenge: Challenge = {
-            id: remote.id,
-            title: remote.title,
-            description: remote.description || 'Kindle your flame together.',
-            kind: remote.kind || 'fitness',
-            duration: remote.duration || 7,
-            dailyStake: remote.daily_stake || '0.05',
-            completed: 0,
-            checkInDates: [],
-            inviteCode: normalized,
-            members: (remote.member_count || 1) + 1,
-          };
-
-          update((s) => ({
-            ...s,
-            challenges: [...s.challenges, challenge],
-            joinedCodes: [...s.joinedCodes, normalized],
-          }));
-          return challenge;
-        }
+        if (res.ok) remote = await res.json();
       } catch {
         // Continue to fallback
+      }
+
+      if (remote) {
+        // Lock the stake in the escrow before the backend lists this user as a member.
+        await joinOnchain?.(remote);
+        await fetch(`${API_URL}/api/streaks/${remote.id}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user?.id || 'anon-joiner',
+            wallet_address: user?.wallet_address || undefined,
+          }),
+        }).catch(() => null);
+
+        const challenge: Challenge = {
+          id: remote.id,
+          onchainId: remote.onchain_id || undefined,
+          title: remote.title,
+          description: remote.description || 'Kindle your flame together.',
+          kind: remote.kind || 'fitness',
+          duration: remote.duration || 7,
+          dailyStake: remote.daily_stake || '0.05',
+          completed: 0,
+          checkInDates: [],
+          inviteCode: normalized,
+          members: (remote.member_count || 1) + 1,
+        };
+
+        update((s) => ({
+          ...s,
+          challenges: [...s.challenges, challenge],
+          joinedCodes: [...s.joinedCodes, normalized],
+        }));
+        return challenge;
       }
 
       // If backend offline or custom code
@@ -304,13 +339,39 @@ export function useStreaker() {
   );
 
   const deleteChallenge = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      const user = current.current.user;
+      if (user) {
+        // Creators delete the challenge for everyone; members only leave it.
+        const res = await fetch(
+          `${API_URL}/api/streaks/${encodeURIComponent(id)}?user_id=${encodeURIComponent(user.id)}`,
+          { method: 'DELETE' },
+        ).catch(() => null);
+        if (res && !res.ok && res.status !== 404)
+          throw new Error('The challenge could not be deleted from the server. Try again.');
+        if (!res) throw new Error('The server is unreachable, so the challenge was not deleted.');
+      }
       update((s) => ({
         ...s,
         challenges: s.challenges.filter((challenge) => challenge.id !== id),
       }));
     },
     [update],
+  );
+
+  const uploadProof = useCallback(
+    async (challengeId: string, proof: Blob, day: number, participant: string) => {
+      const user = current.current.user;
+      const form = new FormData();
+      form.append('file', proof, 'proof.jpg');
+      form.append('streak_id', challengeId);
+      form.append('participant', participant);
+      if (user) form.append('user_id', user.id);
+      form.append('day', String(day));
+      const res = await fetch(`${API_URL}/api/streaks/upload-proof`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Check-in saved on Monad, but friends could not be notified.');
+    },
+    [],
   );
 
   const approveFriend = useCallback(
@@ -394,8 +455,14 @@ export function useStreaker() {
   );
 
   const respondToInvitation = useCallback(
-    async (invitationId: string, accept: boolean) => {
+    async (invitationId: string, accept: boolean, joinOnchain?: OnchainJoin) => {
       const user = current.current.user;
+      const invitation = current.current.invitations.find((i) => i.id === invitationId);
+      if (accept && joinOnchain && invitation) {
+        const streakRes = await fetch(`${API_URL}/api/streaks/${encodeURIComponent(invitation.streak_id)}`);
+        if (!streakRes.ok) throw new Error('This challenge no longer exists.');
+        await joinOnchain(await streakRes.json());
+      }
       const res = await fetch(`${API_URL}/api/streaks/invitations/${encodeURIComponent(invitationId)}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -421,6 +488,7 @@ export function useStreaker() {
         const rs = data.streak;
         const newChallenge: Challenge = {
           id: rs.id,
+          onchainId: rs.onchain_id || undefined,
           title: rs.title,
           description: rs.description || 'Kindle your flame together.',
           kind: rs.kind || 'fitness',
@@ -456,6 +524,7 @@ export function useStreaker() {
     createChallenge,
     joinChallenge,
     deleteChallenge,
+    uploadProof,
     inviteFriend,
     respondToInvitation,
     loadRegisteredUsers,

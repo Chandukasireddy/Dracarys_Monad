@@ -118,7 +118,8 @@ class DatabaseManager:
                     invite_code TEXT UNIQUE,
                     required_approvals INTEGER DEFAULT 1,
                     start_time DOUBLE PRECISION,
-                    created_at DOUBLE PRECISION
+                    created_at DOUBLE PRECISION,
+                    onchain_id TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS streak_members (
@@ -212,7 +213,8 @@ class DatabaseManager:
                     invite_code TEXT UNIQUE,
                     required_approvals INTEGER DEFAULT 1,
                     start_time REAL,
-                    created_at REAL
+                    created_at REAL,
+                    onchain_id TEXT
                 );
             """)
             cursor.execute("""
@@ -280,6 +282,14 @@ class DatabaseManager:
                     proof_image TEXT
                 );
             """)
+
+        # Older databases were created before streaks tracked their on-chain ID.
+        if self.is_postgres:
+            cursor.execute("ALTER TABLE streaks ADD COLUMN IF NOT EXISTS onchain_id TEXT")
+        else:
+            columns = [row[1] for row in cursor.execute("PRAGMA table_info(streaks)").fetchall()]
+            if "onchain_id" not in columns:
+                cursor.execute("ALTER TABLE streaks ADD COLUMN onchain_id TEXT")
 
         conn.commit()
         conn.close()
@@ -447,8 +457,8 @@ class DatabaseManager:
         ph = "%s" if self.is_postgres else "?"
 
         query = f"""
-            INSERT INTO streaks (id, title, description, kind, duration, daily_stake, creator_id, creator_address, vault_contract, invite_code, required_approvals, start_time, created_at)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            INSERT INTO streaks (id, title, description, kind, duration, daily_stake, creator_id, creator_address, vault_contract, invite_code, required_approvals, start_time, created_at, onchain_id)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """
         cursor.execute(query, (
             streak_id,
@@ -463,7 +473,8 @@ class DatabaseManager:
             invite_code,
             int(data.get("required_approvals", 1)),
             now,
-            now
+            now,
+            data.get("onchain_id")
         ))
 
         # Add creator as initial member
@@ -548,6 +559,34 @@ class DatabaseManager:
         conn.commit()
         conn.close()
         return self.get_streak(streak_id) # type: ignore
+
+    def delete_streak(self, streak_id: str, user_id: str) -> str:
+        """Creators delete the whole streak; other members only leave it."""
+        streak = self.get_streak(streak_id)
+        if not streak:
+            raise ValueError(f"Streak {streak_id} not found")
+
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        ph = "%s" if self.is_postgres else "?"
+        if streak["creator_id"] == user_id:
+            cursor.execute(
+                f"DELETE FROM check_in_approvals WHERE proof_id IN (SELECT id FROM check_ins WHERE streak_id = {ph})",
+                (streak_id,),
+            )
+            for table in ("check_ins", "invitations", "feed_events", "streak_members"):
+                cursor.execute(f"DELETE FROM {table} WHERE streak_id = {ph}", (streak_id,))
+            cursor.execute(f"DELETE FROM streaks WHERE id = {ph}", (streak_id,))
+            result = "deleted"
+        else:
+            cursor.execute(
+                f"DELETE FROM streak_members WHERE streak_id = {ph} AND user_id = {ph}",
+                (streak_id, user_id),
+            )
+            result = "left"
+        conn.commit()
+        conn.close()
+        return result
 
     def list_streaks(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         conn = self.get_connection()
@@ -636,11 +675,19 @@ class DatabaseManager:
         conn.close()
 
         results = []
+        streaks: Dict[str, Optional[Dict[str, Any]]] = {}
         for r in rows:
             if exclude_user and (r["user_id"] == exclude_user or r.get("participant_address") == exclude_user):
                 continue
+            if r["streak_id"] not in streaks:
+                streaks[r["streak_id"]] = self.get_streak(r["streak_id"])
+            streak = streaks[r["streak_id"]]
+            # Only fellow members can approve a proof on-chain.
+            if exclude_user and streak and exclude_user not in [m["user_id"] for m in streak["members"]]:
+                continue
             item = self.get_checkin(r["id"])
             if item:
+                item["onchain_id"] = streak.get("onchain_id") if streak else None
                 results.append(item)
         return results
 

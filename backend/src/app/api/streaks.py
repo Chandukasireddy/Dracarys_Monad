@@ -28,6 +28,7 @@ class StreakCreateBody(BaseModel):
     creator_address: Optional[str] = None
     vault_contract: Optional[str] = "0x77547711ea2726F16C8BCeDD37a347C139D346E7"
     required_approvals: int = 1
+    onchain_id: Optional[str] = None
 
 class StreakJoinBody(BaseModel):
     user_id: str
@@ -124,6 +125,14 @@ def get_streak(id: str):
     if not streak:
         raise HTTPException(status_code=404, detail=f"Streak {id} not found")
     return streak
+
+@router.delete("/{id}")
+def delete_streak(id: str, user_id: str = Query(...)):
+    """Delete a streak (creator) or leave it (member)."""
+    try:
+        return {"id": id, "result": db.delete_streak(id, user_id=user_id)}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.post("/{id}/join")
 def join_streak(id: str, req: StreakJoinBody):
