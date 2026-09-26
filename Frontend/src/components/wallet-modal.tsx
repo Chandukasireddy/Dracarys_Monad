@@ -100,10 +100,30 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
             }}
           >
             {isPending ? <LoaderCircle className="spin" size={18} /> : <Wallet size={18} />}{' '}
-            {isPending ? 'Check MetaMask prompt…' : 'Connect Browser Wallet'}
+            {isPending ? 'Check MetaMask prompt…' : 'Connect MetaMask / Browser Wallet'}
           </button>
+
+          <div style={{ marginTop: '10px', textAlign: 'center' }}>
+            <a
+              href="https://metamask.app.link/dapp/dracarys-monad.vercel.app"
+              className="button secondary full"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                borderColor: 'rgba(255,130,76,0.3)',
+                background: 'rgba(255,130,76,0.06)',
+                color: '#ff824c',
+                textDecoration: 'none',
+              }}
+            >
+              <ExternalLink size={16} /> Open in MetaMask Mobile App
+            </a>
+          </div>
+
           <p className="helper center" style={{ marginTop: '10px' }}>
-            MetaMask or any injected EVM browser wallet. On mobile, open Dracarys in your wallet&rsquo;s in-app browser.
+            MetaMask or any injected EVM browser wallet. On mobile phones, tap &ldquo;Open in MetaMask Mobile App&rdquo; to connect with 1-click.
           </p>
         </>
       )}
