@@ -1,6 +1,7 @@
 export type HabitKind = 'fitness' | 'reading' | 'mindfulness';
 export type Challenge = {
   id: string;
+  onchainId?: string;
   title: string;
   description: string;
   kind: HabitKind;

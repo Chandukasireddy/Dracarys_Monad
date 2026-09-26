@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useConnection } from 'wagmi';
+import { parseEventLogs } from 'viem';
 import {
   Flame,
   Zap,
@@ -37,12 +38,15 @@ import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
 import { AccountModal } from './account-modal';
 import { MobileSyncModal } from './mobile-sync-modal';
+import { useChallengeContract } from '@/hooks/use-challenge-contract';
+import { DRACARYS_ABI } from '@/lib/contract';
 
 type Tab = 'streaks' | 'friends' | 'progress';
 type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | 'mobile-sync' | null;
 export function StreakerApp() {
   const store = useStreaker();
   const { address, isConnected } = useConnection();
+  const contract = useChallengeContract();
   const [tab, setTab] = useState<Tab>('streaks'),
     [dialog, setDialog] = useState<Dialog>(null),
     [checkIn, setCheckIn] = useState<Challenge | null>(null),
@@ -88,6 +92,33 @@ export function StreakerApp() {
     0,
   );
   const featured = store.challenges[0];
+  const createChallenge = async (
+    input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>,
+  ) => {
+    let onchainId: string | undefined;
+    if (isConnected) {
+      if (!contract.configured) throw new Error('The Dracarys contract is not configured.');
+      const receipt = await contract.igniteStreak(input.title, input.duration, input.dailyStake);
+      const events = parseEventLogs({
+        abi: DRACARYS_ABI,
+        eventName: 'StreakIgnited',
+        logs: receipt.logs,
+      });
+      onchainId = events[0]?.args.streakId?.toString();
+      notify(`Challenge confirmed on Monad${onchainId ? ` as streak #${onchainId}` : ''}.`);
+    }
+    return store.createChallenge({ ...input, onchainId });
+  };
+  const claimCheckIn = async (proofUri: string) => {
+    if (isConnected) {
+      if (!checkIn?.onchainId) {
+        throw new Error('This challenge is demo-only. Create a new challenge with your wallet connected.');
+      }
+      await contract.submitProof(BigInt(checkIn.onchainId), proofUri);
+      notify('Check-in confirmed on Monad Testnet.');
+    }
+    return store.checkIn(checkIn?.id || '');
+  };
   const approve = (id: string) => {
     store.approveFriend(id);
     navigator.vibrate?.(30);
@@ -822,7 +853,7 @@ export function StreakerApp() {
       {dialog === 'create' && (
         <CreateChallenge
           onClose={() => setDialog(null)}
-          onCreate={store.createChallenge}
+          onCreate={createChallenge}
           notify={notify}
           registeredUsers={store.registeredUsers}
           currentUser={store.user}
@@ -844,7 +875,7 @@ export function StreakerApp() {
         <CheckInModal
           challenge={checkIn}
           onClose={() => setCheckIn(null)}
-          onClaim={() => store.checkIn(checkIn.id)}
+          onClaim={claimCheckIn}
           sound={store.sound}
         />
       )}

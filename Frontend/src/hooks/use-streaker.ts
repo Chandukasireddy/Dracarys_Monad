@@ -171,7 +171,11 @@ export function useStreaker() {
   );
 
   const createChallenge = useCallback(
-    async (input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => {
+    async (
+      input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'> & {
+        onchainId?: string;
+      },
+    ) => {
       const tempId = generateId();
       const code = `DRA-${tempId.slice(0, 6).toUpperCase()}`;
       const user = current.current.user;

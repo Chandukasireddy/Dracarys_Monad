@@ -21,7 +21,7 @@ export function CheckInModal({
 }: {
   challenge: Challenge;
   onClose: () => void;
-  onClaim: () => boolean;
+  onClaim: (proofUri: string) => boolean | Promise<boolean>;
   sound: boolean;
 }) {
   const [preview, setPreview] = useState('');
@@ -48,7 +48,7 @@ export function CheckInModal({
     setBusy(true);
     await new Promise((r) => setTimeout(r, 650));
     if (!alive.current) return;
-    const ok = onClaim();
+    const ok = await onClaim(preview);
     if (ok) {
       setClaimed(true);
       celebrate(sound);

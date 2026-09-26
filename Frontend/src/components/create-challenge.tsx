@@ -25,7 +25,9 @@ export function CreateChallenge({
   onInviteFriend,
 }: {
   onClose: () => void;
-  onCreate: (c: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => Challenge | Promise<Challenge>;
+  onCreate: (
+    c: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>,
+  ) => Challenge | Promise<Challenge>;
   notify: (s: string) => void;
   registeredUsers?: UserProfile[];
   currentUser?: UserProfile | null;
@@ -217,13 +219,16 @@ export function CreateChallenge({
                       );
                       return;
                     }
-                    const result = onCreate({ title: title.trim(), duration, dailyStake: stake, kind });
-                    if (result instanceof Promise) {
-                      result.then((c) => setCreated(c));
-                    } else {
-                      setCreated(result);
-                    }
-                    setError('');
+                    Promise.resolve(
+                      onCreate({ title: title.trim(), duration, dailyStake: stake, kind }),
+                    )
+                      .then((c) => {
+                        setCreated(c);
+                        setError('');
+                      })
+                      .catch((e) => {
+                        setError(e instanceof Error ? e.message : 'Transaction failed. Try again.');
+                      });
                   }}
                 >
                   <Check size={18} /> Create challenge

@@ -30,20 +30,16 @@ export function FriendApprovals({
     try {
       // If wallet is connected and target has an EVM address or fallback
       if (isConnected && contract.configured) {
-        try {
-          const friendAddr = isAddress(approval.name)
-            ? (approval.name as Address)
-            : '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as Address;
-          const receipt = await contract.approveCheckIn(
-            BigInt(1),
-            friendAddr,
-            BigInt(approval.streak || 1),
-          );
-          if (receipt?.transactionHash) {
-            setTxHash(receipt.transactionHash);
-          }
-        } catch (contractErr) {
-          console.warn('Contract approval skipped or reverted, approving via backend quorum:', contractErr);
+        const friendAddr = isAddress(approval.name)
+          ? (approval.name as Address)
+          : '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as Address;
+        const receipt = await contract.approveCheckIn(
+          BigInt(1),
+          friendAddr,
+          BigInt(approval.streak || 1),
+        );
+        if (receipt?.transactionHash) {
+          setTxHash(receipt.transactionHash);
         }
       }
       onApprove(approval.id);
