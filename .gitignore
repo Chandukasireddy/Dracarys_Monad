@@ -1,0 +1,40 @@
+# Hackathon event file (specifically ignored)
+about_event.md
+events.md
+
+# Environment and sensitive keys
+.env
+.env.*
+!.env.example
+
+# Node / JS dependencies and build
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# Foundry / Hardhat / Solidity artifacts
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Python / AI / Virtual environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Logs & temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS & IDE metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
