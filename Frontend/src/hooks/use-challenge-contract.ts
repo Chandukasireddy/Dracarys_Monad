@@ -1,6 +1,6 @@
 'use client';
 import { useConnection, usePublicClient, useWalletClient, useSwitchChain } from 'wagmi';
-import { isAddress, parseEther, encodeFunctionData, type Address, type Hex } from 'viem';
+import { isAddress, parseEther, formatEther, encodeFunctionData, type Address, type Hex } from 'viem';
 import { monadTestnet } from '@/lib/chain';
 import {
   DRACARYS_CONTRACT_ADDRESS,
@@ -30,6 +30,15 @@ export function useChallengeContract() {
     }
 
     const request = { to: contractAddress, data, account: address, value };
+    const balance = await publicClient.getBalance({ address });
+    const gasPrice = await publicClient.getGasPrice();
+    const gasBudget = gasPrice * 300_000n;
+    if (balance < value + gasBudget) {
+      const needed = value > 0n ? `${formatEther(value)} MON for the stake plus` : 'about';
+      throw new Error(
+        `Not enough MON. You need ${needed} ${formatEther(gasBudget)} MON for gas, but this wallet has ${formatEther(balance)} MON. Get test MON from the Monad faucet, or use a wallet with more MON.`,
+      );
+    }
     const gas = await publicClient.estimateGas(request);
     await publicClient.call({ ...request, gas });
     const hash = await walletClient.sendTransaction({ ...request, gas, chain: monadTestnet });
@@ -112,26 +121,6 @@ export function useChallengeContract() {
           args: [streakId],
         }),
       ),
-
-    settle: (streakId: bigint) =>
-      execute(
-        encodeFunctionData({
-          abi: DRACARYS_ABI,
-          functionName: 'settle',
-          args: [streakId],
-        }),
-      ),
-
-    getMemberSummary: async (streakId: bigint, user: Address) => {
-      if (!contractAddress || !publicClient) throw new Error('Dracarys contract not configured.');
-      const [lost, won, missedDays, unsettledDays, rewardClaimed] = await publicClient.readContract({
-        address: contractAddress,
-        abi: DRACARYS_ABI,
-        functionName: 'getMemberSummary',
-        args: [streakId, user],
-      });
-      return { lost, won, missedDays, unsettledDays, rewardClaimed };
-    },
 
     cancelStreak: (streakId: bigint) =>
       execute(

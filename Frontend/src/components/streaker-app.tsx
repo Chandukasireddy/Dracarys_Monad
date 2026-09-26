@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useConnection } from 'wagmi';
-import { parseEventLogs, formatEther } from 'viem';
+import { parseEventLogs } from 'viem';
 import {
   Flame,
   Zap,
@@ -40,7 +40,6 @@ import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
 import { AccountModal } from './account-modal';
 import { useChallengeContract } from '@/hooks/use-challenge-contract';
-import { useMoneyAlerts } from '@/hooks/use-money-alerts';
 import { DRACARYS_ABI } from '@/lib/contract';
 
 type Tab = 'streaks' | 'friends' | 'progress';
@@ -80,8 +79,6 @@ export function StreakerApp() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
-  const money = useMoneyAlerts(store.challenges, contract, address, notify);
-  const unsettled = money.summaries.filter((m) => m.unsettledDays > 0n);
   const pending = store.approvals.filter((a) => !a.approved).length;
   const longest = Math.max(0, ...store.challenges.map((c) => longestRun(challengeDates(c))));
   const currentStreak = Math.max(0, ...store.challenges.map((c) => currentRun(challengeDates(c))));
@@ -153,7 +150,6 @@ export function StreakerApp() {
     try {
       await contract.claimCompletionReward(BigInt(details.onchainId));
       notify('Winner reward claimed from Monad Testnet.');
-      await money.refresh();
       setDetails(null);
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Reward claim failed.');
@@ -161,16 +157,6 @@ export function StreakerApp() {
   };
   // Only the creator can edit; challenges without a known creator were made on this device.
   const canEdit = (c: Challenge) => !c.creatorId || c.creatorId === store.user?.id;
-  const settleChallenge = async (challenge: Challenge) => {
-    if (!challenge.onchainId) return;
-    try {
-      await contract.settle(BigInt(challenge.onchainId));
-      notify('Missed days settled on Monad.');
-      await money.refresh();
-    } catch (error) {
-      notify(error instanceof Error ? error.message.split('\n')[0] : 'Settling failed.');
-    }
-  };
   const removeChallenge = async (challenge: Challenge) => {
     const leaving = !canEdit(challenge);
     if (
@@ -359,7 +345,7 @@ export function StreakerApp() {
               onClick={() => setDialog('notifications')}
             >
               <Bell size={19} />
-              {(pending > 0 || unsettled.length > 0) && <i />}
+              {pending > 0 && <i />}
             </button>
             <button
               className="wallet-button"
@@ -954,29 +940,6 @@ export function StreakerApp() {
               <strong>{stakeTotal(details.dailyStake, details.completed)} MON</strong>
             </div>
           </div>
-          {(() => {
-            const summary = money.summaries.find((m) => m.challengeId === details.id);
-            if (!summary) return null;
-            return (
-              <>
-                <div className="commitment-summary money-summary">
-                  <div>
-                    <span>Deducted from you</span>
-                    <strong className="money-lost">−{formatEther(summary.lost)} MON</strong>
-                  </div>
-                  <div>
-                    <span>Won from friends</span>
-                    <strong className="money-won">+{formatEther(summary.won)} MON</strong>
-                  </div>
-                </div>
-                {summary.unsettledDays > 0n && (
-                  <button className="button secondary full" onClick={() => settleChallenge(details)}>
-                    <Zap size={16} /> Settle missed days
-                  </button>
-                )}
-              </>
-            );
-          })()}
           {details.completed >= details.duration && details.onchainId && isConnected && (
             <button className="button primary full" onClick={claimCompletionReward}>
               <Wallet size={17} /> Claim winner reward
@@ -1127,37 +1090,6 @@ export function StreakerApp() {
           onClose={() => setDialog(null)}
         >
           <div className="notification-list">
-            {money.summaries
-              .filter((m) => m.lost > 0n || m.won > 0n)
-              .map((m) => (
-                <div key={m.challengeId} className="money-notification">
-                  <Wallet />
-                  <span>
-                    <strong>{m.title}</strong>
-                    {m.lost > 0n && (
-                      <small className="money-lost">
-                        −{formatEther(m.lost)} MON deducted for missed days
-                      </small>
-                    )}
-                    {m.won > 0n && (
-                      <small className="money-won">+{formatEther(m.won)} MON added to your wallet</small>
-                    )}
-                  </span>
-                </div>
-              ))}
-            {unsettled.map((m) => {
-              const challenge = store.challenges.find((c) => c.id === m.challengeId);
-              return (
-                <button key={`settle-${m.challengeId}`} onClick={() => challenge && settleChallenge(challenge)}>
-                  <Zap />
-                  <span>
-                    <strong>Missed days waiting in “{m.title}”</strong>
-                    <small>Settle to move the MON to whoever showed up.</small>
-                  </span>
-                  <ArrowRight size={16} />
-                </button>
-              );
-            })}
             <button
               onClick={() => {
                 setDialog(null);
@@ -1190,8 +1122,8 @@ export function StreakerApp() {
             </button>
           </div>
           <p className="helper">
-            MetaMask doesn’t list payouts from the contract, so money updates appear here and on
-            MonadVision under Internal Transactions.
+            MetaMask doesn’t list payouts from the contract. Check MonadVision under Internal
+            Transactions to see MON you received.
           </p>
         </Modal>
       )}
