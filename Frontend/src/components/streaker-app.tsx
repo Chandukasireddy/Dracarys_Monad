@@ -103,11 +103,11 @@ export function StreakerApp() {
       <div className="app-loading" role="status">
         <span className="brand">
           <span className="brand-icon">
-            <Zap fill="currentColor" size={23} />
+            <Flame fill="currentColor" size={23} />
           </span>
-          streaker.
+          dracarys<span className="brand-period">.</span>
         </span>
-        <p>A little every day.</p>
+        <p>Kindle your flame. A little every day.</p>
       </div>
     );
   return (
@@ -116,11 +116,11 @@ export function StreakerApp() {
         Skip to content
       </a>
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Streaker home">
+        <a className="brand" href="/" aria-label="Dracarys home">
           <span className="brand-icon">
-            <Zap fill="currentColor" size={23} />
+            <Flame fill="currentColor" size={23} />
           </span>
-          streaker<span className="brand-period">.</span>
+          dracarys<span className="brand-period">.</span>
         </a>
         <div className="sidebar-caption">A LITTLE EVERY DAY.</div>
         <nav aria-label="Main navigation">
@@ -178,7 +178,7 @@ export function StreakerApp() {
               onClick={() => setDialog('settings')}
               aria-label="Open profile and settings"
             >
-              <Zap size={20} fill="currentColor" /> streaker.
+              <Flame size={20} fill="currentColor" /> dracarys.
             </button>
           </div>
           <div className="topbar-actions">
@@ -754,7 +754,7 @@ export function StreakerApp() {
       {dialog === 'settings' && (
         <Modal
           title="Your little corner."
-          subtitle="Make Streaker feel like you."
+          subtitle="Make Dracarys feel like you."
           onClose={() => setDialog(null)}
         >
           <div className="settings-profile">
@@ -793,7 +793,7 @@ export function StreakerApp() {
               )
             }
           >
-            Install Streaker on your phone
+            Install Dracarys on your phone
           </button>
           <button
             className="button secondary full"

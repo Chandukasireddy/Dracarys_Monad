@@ -45,16 +45,16 @@ The autonomous escrow vault lives on **Monad Testnet (Chain ID `10143`)**:
 
 ## 👥 3-Person Team Workstreams & Prompts
 
-### Teammate 1: Frontend Lead (`web/`)
-* **Stack:** Next.js 16 (App Router), Tailwind CSS, Lucide Icons, Viem, Canvas Confetti.
+### Teammate 1: Frontend Lead (`Frontend/`)
+* **Stack:** Next.js 16 (App Router), Tailwind CSS, Lucide Icons, Viem, Wagmi, Canvas Confetti.
 * **Deliverable:** Mobile-first PWA with dark obsidian theme, Monad purple (`#836EF9`), flame indicators (`🔥`), daily calendar check-in rings, and 1-tap friend approval buttons.
 
-### Teammate 2: Backend Lead (`web/src/app/api/`)
-* **Stack:** FastAPI (Python) or Next.js Route Handlers.
-* **Deliverable:** Upload photo/proof API, metadata hashing, and daily cutoff helper.
+### Teammate 2: Backend Lead (`backend/`)
+* **Stack:** FastAPI (Python), Uvicorn, Pydantic, Python-multipart.
+* **Deliverable:** Verification engine, proof upload API, metadata hashing, real-time social feed, and 24h deadline/slacker burn evaluation.
 
-### Teammate 3 (You): Monad & Deployment Lead
-* **Stack:** Solidity smart contract (`DracarysEscrow.sol`), Monad Testnet deployment, and Vercel GitHub CI/CD orchestration.
+### Teammate 3 (You): Monad & Smart Contract Lead (`contracts/`)
+* **Stack:** Hardhat, Solidity (`DracarysEscrow.sol`), Monad Testnet deployment, and Vercel GitHub CI/CD orchestration.
 
 ---
 

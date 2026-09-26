@@ -1,4 +1,5 @@
 import { pastDays, type DemoState } from './types';
+
 export function initialState(): DemoState {
   return {
     sound: true,
@@ -13,7 +14,7 @@ export function initialState(): DemoState {
         dailyStake: '0.1',
         completed: 5,
         checkInDates: pastDays(5),
-        inviteCode: 'STR-GYM21',
+        inviteCode: 'DRA-GYM21',
         members: 4,
         earnedUsd: 1.2,
         lockedUsd: 5,
@@ -27,7 +28,7 @@ export function initialState(): DemoState {
         dailyStake: '0.05',
         completed: 3,
         checkInDates: pastDays(3),
-        inviteCode: 'STR-READ14',
+        inviteCode: 'DRA-READ14',
         members: 3,
       },
       {
@@ -39,7 +40,7 @@ export function initialState(): DemoState {
         dailyStake: '0.02',
         completed: 2,
         checkInDates: pastDays(2),
-        inviteCode: 'STR-CALM7',
+        inviteCode: 'DRA-CALM7',
         members: 2,
       },
     ],

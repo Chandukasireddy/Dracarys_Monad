@@ -5,8 +5,21 @@ import json
 from pathlib import Path
 from fastapi import UploadFile
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+def get_upload_dir() -> Path:
+    try:
+        p = Path(__file__).resolve().parent.parent.parent.parent / "uploads"
+        p.mkdir(parents=True, exist_ok=True)
+        test_file = p / ".write_test"
+        test_file.touch()
+        test_file.unlink()
+        return p
+    except (OSError, PermissionError):
+        tmp_p = Path("/tmp/uploads")
+        tmp_p.mkdir(parents=True, exist_ok=True)
+        return tmp_p
+
+
+UPLOAD_DIR = get_upload_dir()
 
 
 def calculate_content_hash(data: bytes) -> str:

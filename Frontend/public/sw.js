@@ -1,4 +1,4 @@
-const CACHE = 'streaker-shell-v1';
+const CACHE = 'dracarys-shell-v1';
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
@@ -16,7 +16,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith('streaker-') && key !== CACHE)
+            .filter((key) => (key.startsWith('dracarys-') || key.startsWith('streaker-')) && key !== CACHE)
             .map((key) => caches.delete(key)),
         ),
       )

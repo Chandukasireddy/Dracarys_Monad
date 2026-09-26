@@ -41,7 +41,7 @@ test('creates validated challenge with QR invite and joins demo challenge', asyn
   await page.getByLabel('Invite code', { exact: true }).fill('bad-code');
   await page.getByRole('button', { name: 'Join challenge', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Invite not found');
-  await page.getByRole('button', { name: 'STR-WALK7', exact: true }).click();
+  await page.getByRole('button', { name: 'DRA-WALK7', exact: true }).click();
   await page.getByRole('button', { name: 'Join challenge', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Take the scenic route.' })).toBeVisible();
   await page.reload();

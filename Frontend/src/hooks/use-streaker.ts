@@ -3,21 +3,26 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { parseEther, formatEther } from 'viem';
 import { initialState } from '@/lib/mock-data';
 import { Challenge, DemoState, dayKey, challengeDates } from '@/lib/types';
-const STORAGE = 'streaker-demo-v1';
+
+const STORAGE = 'dracarys-demo-v1';
+const LEGACY_STORAGE = 'streaker-demo-v1';
+
 // getRandomValues also works on a phone visiting a local HTTP development server.
 function demoId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('');
 }
+
 export function useStreaker() {
   const [state, setState] = useState<DemoState>(initialState);
   const [ready, setReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
   const current = useRef(state);
+
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE);
+      const raw = localStorage.getItem(STORAGE) || localStorage.getItem(LEGACY_STORAGE);
       if (raw) {
         const value = JSON.parse(raw);
         if (
@@ -43,6 +48,7 @@ export function useStreaker() {
     }
     setReady(true);
   }, []);
+
   const update = useCallback((fn: (s: DemoState) => DemoState) => {
     const next = fn(current.current);
     current.current = next;
@@ -53,6 +59,7 @@ export function useStreaker() {
       setStorageWarning(true);
     }
   }, []);
+
   const checkIn = useCallback(
     (id: string) => {
       const challenge = current.current.challenges.find((c) => c.id === id);
@@ -83,15 +90,16 @@ export function useStreaker() {
     },
     [update],
   );
+
   const createChallenge = useCallback(
     (input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => {
       const challenge: Challenge = {
         ...input,
         id: demoId(),
-        description: 'Small steps. A stronger you.',
+        description: 'Kindle your flame. A stronger you.',
         completed: 0,
         checkInDates: [],
-        inviteCode: `STR-${demoId().slice(0, 6).toUpperCase()}`,
+        inviteCode: `DRA-${demoId().slice(0, 6).toUpperCase()}`,
         members: 1,
       };
       update((s) => ({ ...s, challenges: [...s.challenges, challenge] }));
@@ -99,6 +107,7 @@ export function useStreaker() {
     },
     [update],
   );
+
   const joinChallenge = useCallback(
     (code: string) => {
       const normalized = code.trim().toUpperCase();
@@ -106,8 +115,8 @@ export function useStreaker() {
         throw new Error('You have already joined this challenge.');
       if (current.current.challenges.some((c) => c.inviteCode === normalized))
         throw new Error('This challenge is already in your streaks.');
-      if (normalized !== 'STR-WALK7')
-        throw new Error('Invite not found in this demo. Try STR-WALK7.');
+      if (normalized !== 'DRA-WALK7' && normalized !== 'STR-WALK7')
+        throw new Error('Invite not found in this demo. Try DRA-WALK7.');
       const challenge: Challenge = {
         id: demoId(),
         title: 'Take the scenic route.',
@@ -128,6 +137,7 @@ export function useStreaker() {
     },
     [update],
   );
+
   const approveFriend = useCallback(
     (id: string) =>
       update((s) => ({
@@ -136,8 +146,10 @@ export function useStreaker() {
       })),
     [update],
   );
+
   const setSound = (sound: boolean) => update((s) => ({ ...s, sound }));
   const reset = () => update(() => initialState());
+
   return {
     ...state,
     ready,
@@ -150,6 +162,9 @@ export function useStreaker() {
     reset,
   };
 }
+
+export const useDracarys = useStreaker;
+
 export function stakeTotal(stake: string, days: number) {
   return formatEther(parseEther(stake) * BigInt(days));
 }

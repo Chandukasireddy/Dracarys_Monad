@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next';
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Streaker — Show up for yourself',
-    short_name: 'Streaker',
-    description: 'Build habits. Keep your streak. Earn your stake back.',
+    name: 'Dracarys — Social Habit Staking on Monad',
+    short_name: 'Dracarys',
+    description: 'Kindle your flame. Keep your streak. Sub-second habit staking on Monad.',
     start_url: '/',
     display: 'standalone',
     background_color: '#101013',

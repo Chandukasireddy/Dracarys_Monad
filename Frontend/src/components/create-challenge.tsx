@@ -248,7 +248,7 @@ export function CreateChallenge({
               if (navigator.share) {
                 try {
                   await navigator.share({
-                    title: 'Join my Streaker challenge',
+                    title: 'Join my Dracarys challenge',
                     text: created.title,
                     url: invite,
                   });
@@ -310,13 +310,13 @@ export function JoinChallenge({
           autoFocus
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="STR-WALK7"
+          placeholder="DRA-WALK7"
           required
         />
         <p className="helper">
           Try{' '}
-          <button type="button" className="text-link" onClick={() => setCode('STR-WALK7')}>
-            STR-WALK7
+          <button type="button" className="text-link" onClick={() => setCode('DRA-WALK7')}>
+            DRA-WALK7
           </button>{' '}
           to join the demo walking challenge.
         </p>

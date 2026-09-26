@@ -64,7 +64,7 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
             {isPending ? 'Check your wallet…' : 'Connect browser wallet'}
           </button>
           <p className="helper center">
-            MetaMask or another injected wallet. On mobile, open Streaker in your wallet’s browser.
+            MetaMask or another injected wallet. On mobile, open Dracarys in your wallet’s browser.
           </p>
         </>
       )}
