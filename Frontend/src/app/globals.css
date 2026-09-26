@@ -3784,3 +3784,267 @@ html {
 
   button { touch-action: manipulation; }
 }
+
+/* =================================================================
+   ICON & BUTTON RESPONSIVE SYSTEM
+   Every icon container and button adapts from mobile → desktop
+   ================================================================= */
+
+/* ---- Icon containers: fluid sizing using clamp() ---- */
+
+/* Brand icon (fire in sidebar / loading) */
+.brand-icon {
+  width:  clamp(32px, 3.2vw, 42px);
+  height: clamp(32px, 3.2vw, 42px);
+  border-radius: clamp(9px, 1vw, 13px);
+}
+
+/* Stat-card icon */
+.stat-icon {
+  width:  clamp(34px, 3.4vw, 44px);
+  height: clamp(34px, 3.4vw, 44px);
+  border-radius: clamp(9px, 1vw, 13px);
+}
+
+/* Habit card icon */
+.habit-icon {
+  width:  clamp(34px, 3.4vw, 42px);
+  height: clamp(34px, 3.4vw, 42px);
+  border-radius: clamp(8px, 0.9vw, 12px);
+}
+
+/* Sidebar tiny-bolt */
+.tiny-bolt {
+  width:  clamp(28px, 3vw, 36px);
+  height: clamp(28px, 3vw, 36px);
+  border-radius: clamp(7px, 0.8vw, 11px);
+}
+
+/* Topbar icon-button (bell, settings…) */
+.icon-button {
+  width:  clamp(34px, 3.4vw, 40px);
+  height: clamp(34px, 3.4vw, 40px);
+  border-radius: clamp(8px, 0.9vw, 11px);
+}
+
+/* Upload icon */
+.upload-icon {
+  width:  clamp(48px, 5vw, 64px);
+  height: clamp(48px, 5vw, 64px);
+  border-radius: clamp(12px, 1.3vw, 18px);
+}
+
+/* Avatar circle */
+.avatar {
+  width:  clamp(32px, 3.2vw, 40px);
+  height: clamp(32px, 3.2vw, 40px);
+  font-size: clamp(10px, 1vw, 13px);
+}
+
+/* Progress ring */
+.progress-ring {
+  width:  clamp(72px, 7.5vw, 90px);
+  height: clamp(72px, 7.5vw, 90px);
+}
+
+/* Join banner icon */
+.join-icon {
+  width:  clamp(30px, 3vw, 38px);
+  height: clamp(30px, 3vw, 38px);
+}
+
+/* Approve icon (friend approval) */
+.approve-icon {
+  width:  clamp(28px, 2.8vw, 34px);
+  height: clamp(28px, 2.8vw, 34px);
+}
+
+/* Wallet illustration */
+.wallet-illustration {
+  width:  clamp(72px, 7.5vw, 94px);
+  height: clamp(72px, 7.5vw, 94px);
+  border-radius: clamp(16px, 1.8vw, 24px);
+}
+
+/* Toast icon */
+.toast-icon {
+  width:  clamp(22px, 2.2vw, 28px);
+  height: clamp(22px, 2.2vw, 28px);
+}
+
+/* ---- SVG icons: scale with their container ---- */
+/* All Lucide SVG icons inside icon containers scale fluidly */
+.brand-icon svg,
+.stat-icon svg,
+.habit-icon svg,
+.tiny-bolt svg,
+.upload-icon svg,
+.join-icon svg,
+.approve-icon svg,
+.wallet-illustration svg,
+.toast-icon svg {
+  width: 60%;
+  height: 60%;
+}
+
+/* Icon button SVGs fill ~55% of container */
+.icon-button svg {
+  width: 55%;
+  height: 55%;
+}
+
+/* ---- Base .button: fluid height, padding, font ---- */
+.button {
+  min-height: clamp(38px, 4vw, 46px);
+  padding:    clamp(9px,  1vw, 13px) clamp(14px, 1.4vw, 20px);
+  font-size:  clamp(12px, 1.2vw, 14px);
+  border-radius: clamp(10px, 1.1vw, 14px);
+}
+
+/* Checkin button */
+.checkin-button {
+  min-height: clamp(30px, 3.2vw, 36px);
+  padding:    clamp(7px,  0.8vw, 10px) clamp(9px, 1vw, 14px);
+  border-radius: clamp(7px, 0.8vw, 10px);
+}
+
+/* Sidebar create button */
+.sidebar-create {
+  min-height: clamp(42px, 4.5vw, 50px);
+  border-radius: clamp(10px, 1.1vw, 14px);
+}
+
+/* Nav items */
+.nav-item {
+  min-height: clamp(42px, 4.5vw, 50px);
+  border-radius: clamp(10px, 1.1vw, 14px);
+}
+
+/* Wallet button */
+.wallet-button {
+  padding:      clamp(8px, 0.9vw, 12px) clamp(10px, 1.1vw, 15px);
+  border-radius: clamp(10px, 1.1vw, 14px);
+  gap: clamp(6px, 0.7vw, 10px);
+}
+
+/* ---- Topbar user-profile pill (inline-styled in JSX) ---- */
+/* We target its class since it uses inline styles */
+.user-profile-top-button {
+  display: flex !important;
+  align-items: center !important;
+  gap: clamp(5px, 0.6vw, 8px) !important;
+  padding: clamp(4px, 0.5vw, 6px) clamp(8px, 1vw, 12px) clamp(4px, 0.5vw, 6px) clamp(5px, 0.6vw, 8px) !important;
+  border-radius: 999px !important;
+  min-height: clamp(32px, 3.5vw, 40px) !important;
+  font-size: clamp(11px, 1.2vw, 14px) !important;
+  cursor: pointer !important;
+  white-space: nowrap;
+}
+
+.user-profile-top-button .avatar {
+  width:  clamp(20px, 2.2vw, 26px) !important;
+  height: clamp(20px, 2.2vw, 26px) !important;
+  font-size: clamp(9px, 1vw, 12px) !important;
+  flex-shrink: 0;
+}
+
+/* ---- Mobile Sync button (inline-styled in JSX) ---- */
+/* Target its icon-button base + override */
+.icon-button[title*="Mobile"] {
+  min-height: clamp(32px, 3.5vw, 40px);
+  padding:    clamp(5px, 0.6vw, 8px) clamp(8px, 1vw, 12px) !important;
+  font-size:  clamp(11px, 1.1vw, 13px) !important;
+  border-radius: 999px !important;
+  gap: clamp(4px, 0.5vw, 7px) !important;
+}
+
+/* =================================================================
+   ICON & BUTTON BREAKPOINTS
+   ================================================================= */
+
+/* --- Mobile (≤ 560px) --- */
+@media (max-width: 560px) {
+  /* Icon containers: go up slightly so they're tappable */
+  .brand-icon           { width: 34px;  height: 34px; }
+  .stat-icon            { width: 34px;  height: 34px; }
+  .habit-icon           { width: 36px;  height: 36px; }
+  .tiny-bolt            { width: 30px;  height: 30px; }
+  .icon-button          { width: 40px;  height: 40px; }
+  .upload-icon          { width: 50px;  height: 50px; }
+  .approve-icon         { width: 36px;  height: 36px; }
+  .join-icon            { width: 32px;  height: 32px; }
+  .progress-ring        { width: 76px;  height: 76px; }
+
+  /* All .button: 100% width if inside form actions on mobile */
+  .form-actions .button { width: 100%; }
+
+  /* Buttons minimum touch target */
+  .button               { min-height: 44px; }
+  .checkin-button       { min-height: 40px; padding: 10px 12px; }
+  .sidebar-create       { min-height: 46px; }
+
+  /* Wallet button: shorter, icon only visible */
+  .wallet-button        { padding: 9px 11px; gap: 6px; }
+
+  /* User profile pill: smaller on mobile */
+  .user-profile-top-button {
+    padding: 4px 8px 4px 5px !important;
+    font-size: 12px !important;
+    min-height: 34px !important;
+  }
+
+  /* Mobile sync button text hidden on very small screens */
+  .icon-button[title*="Mobile"] span { display: none; }
+  .icon-button[title*="Mobile"] { padding: 0 !important; width: 38px; height: 38px; border-radius: 10px !important; }
+
+  /* Avatar: slightly smaller on mobile */
+  .avatar { width: 34px; height: 34px; font-size: 11px; }
+
+  /* Flame button: full width */
+  .flame-button { width: 100%; justify-content: center; }
+
+  /* Install button */
+  .install-button { padding: 12px 10px; }
+
+  /* Nav item touch target */
+  .nav-item { min-height: 44px; }
+
+  /* Mobile nav icons bigger */
+  .mobile-nav button svg { width: 22px !important; height: 22px !important; }
+}
+
+/* --- Small phones (≤ 380px) --- */
+@media (max-width: 380px) {
+  .icon-button          { width: 36px; height: 36px; }
+  .habit-icon           { width: 34px; height: 34px; }
+  .stat-icon            { width: 32px; height: 32px; }
+  .wallet-button span   { display: none; }          /* hide address, icon only */
+  .wallet-button        { padding: 9px; gap: 0; }
+
+  /* Topbar: squeeze everything */
+  .topbar-actions       { gap: 6px; }
+
+  /* Mobile sync: icon only */
+  .icon-button[title*="Mobile"] { display: none; }  /* hide sync on tiny screens */
+
+  /* Stat card: single column */
+  .stats-grid { grid-template-columns: 1fr; }
+}
+
+/* --- Tablet (641px – 979px) --- */
+@media (min-width: 641px) and (max-width: 979px) {
+  .icon-button          { width: 38px; height: 38px; }
+  .stat-icon            { width: 38px; height: 38px; }
+  .habit-icon           { width: 38px; height: 38px; }
+  .button               { min-height: 42px; font-size: 13px; }
+  .checkin-button       { min-height: 36px; font-size: 12px; }
+}
+
+/* --- Large desktop (≥ 1400px) --- */
+@media (min-width: 1400px) {
+  .brand-icon    { width: 42px; height: 42px; }
+  .stat-icon     { width: 44px; height: 44px; }
+  .habit-icon    { width: 42px; height: 42px; }
+  .icon-button   { width: 38px; height: 38px; }
+  .button        { min-height: 44px; font-size: 13px; }
+}
