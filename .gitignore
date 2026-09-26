@@ -31,6 +31,17 @@ __pycache__/
 npm-debug.log*
 yarn-debug.log*
 
+# Image assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+image.png
+image-1.png
+image-2.png
+image-3.png
+
 # OS & IDE metadata
 .DS_Store
 Thumbs.db
