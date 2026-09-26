@@ -39,16 +39,6 @@ yarn-debug.log*
 backend/uploads/
 !backend/uploads/.gitkeep
 
-# Image assets
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.webp
-image.png
-image-1.png
-image-2.png
-image-3.png
 
 # OS & IDE metadata
 .DS_Store
