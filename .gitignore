@@ -1,7 +1,7 @@
 # Hackathon event file (specifically ignored)
 about_event.md
 events.md
-
+About.md
 # Environment and sensitive keys
 .env
 .env.*
