@@ -1,68 +1,111 @@
-# Dracarys 🐉🔥 — Social Habit Staking on Monad
+# Dracarys: Social Habit Staking on Monad
 
-> **"Feed the flame every day, or get burned."**  
-> Built for the **Monad Blitz Berlin Hackathon** (Saturday, September 26, 2026 at CIC Berlin).
+Dracarys helps people build habits with small financial commitments. Create a challenge, check in with proof, and let friends approve each other's progress. The current frontend includes a mock-data demo mode and Monad Testnet wallet configuration.
 
----
+Built for the Monad Blitz Berlin Hackathon.
 
-## ⚡ The Problem vs. The Monad Solution
+Read the complete project documentation in [`docs/README.md`](docs/README.md), or run the frontend and open [`/docs`](http://localhost:3000/docs).
 
-* **The Problem:** 95% of people quit daily habits, gym goals, and online courses because virtual badges and fake arcade points (Duolingo gems) carry zero financial stakes. But traditional credit cards charge **$0.30 minimum swipe fees**, making daily €0.10 micro-payouts mathematically impossible on Web2 and Ethereum L1.
-* **The Monad Breakthrough:** With **0.3s block times** and **$0.00004 gas fees**, Monad enables **real-money micro-accountability**:
-  * Lock **$1.00 – $5.00** into a streak challenge with friends.
-  * Every day you check in with proof, you unlock **$0.20 directly back into your wallet in 0.3 seconds**.
-  * Slack off and miss a day? Your daily dime is **burned and redistributed to the faithful friends who showed up**.
+## How To Use The App
 
----
+1. Open the app and choose **Create a challenge**.
+2. Select a habit, choose the challenge duration, and set the daily MON commitment.
+3. Submit the challenge. In demo mode, the challenge is saved in your browser.
+4. Open an active challenge and choose **Check in**.
+5. Add proof, such as a photo or note, and submit it.
+6. Use **Friend approvals** to review pending proofs and approve a friend's check-in.
+7. Use **My progress** to review completed days, streaks, and milestones.
+8. Use **Connect wallet** when you want to connect a wallet to the Monad Testnet flow.
 
-## 🏛️ Smart Contract Architecture (`contracts/DracarysEscrow.sol`)
+The frontend is responsive. On small screens, use the bottom navigation to switch between streaks, friends, progress, and challenge creation.
 
-The autonomous escrow vault lives on **Monad Testnet (Chain ID `10143`)**:
+## Run The Frontend
 
-| Function | What It Does on Monad |
+Requirements: Node.js 20.9 or newer.
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+To test the app from a phone on the same Wi-Fi network, open the local network URL printed by Next.js. The development script listens on all network interfaces.
+
+Production checks:
+
+```bash
+npm run typecheck
+npm run build
+npm start
+```
+
+Useful frontend scripts:
+
+```bash
+npm run test:e2e
+npm run format:check
+```
+
+## Run The Backend
+
+The backend provides proof upload, verification, social feed, pending approvals, and slacker evaluation APIs.
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
+
+The API runs at [http://127.0.0.1:8000](http://127.0.0.1:8000). Open the interactive API documentation at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+Run backend tests with:
+
+```bash
+python test_api.py
+```
+
+## Monad Testnet
+
+| Setting | Value |
 | :--- | :--- |
-| `igniteStreak(title, dailyStake, totalDays)` | Creator deposits `dailyStake * totalDays` to ignite a new challenge. |
-| `joinStreak(streakId)` | Friends join the circle and lock their stake into the shared vault. |
-| `submitProof(streakId, proofUri)` | Submits daily proof (gym selfie, step count, or reading URL). |
-| `approveCheckIn(streakId, friend, day)` | Friend peer-verifies proof; triggers an **instant 0.3s micro-payout** of `dailyStake` back to the friend! |
-| `burnSlacker(streakId, slacker, day)` | Slashes missed daily stake and splits it among the friends who stayed faithful. |
+| Network | Monad Testnet |
+| Chain ID | `10143` |
+| Currency | `MON` |
+| RPC | `https://testnet-rpc.monad.xyz` |
+| Contract | [`0x77547711ea2726F16C8BCeDD37a347C139D346E7`](https://testnet.monadvision.com/address/0x77547711ea2726F16C8BCeDD37a347C139D346E7) |
+| Deployment transaction | [`0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f`](https://testnet.monadvision.com/tx/0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f) |
 
----
+## Main Features
 
-## 🌐 Monad Testnet Configuration
+- Habit challenges with daily MON commitments
+- Photo and note proof check-ins
+- Friend approval workflow
+- Streak calendar and progress tracking
+- Wallet connection for Monad Testnet
+- Installable, responsive PWA experience
+- Local demo persistence through browser storage
 
-* **Network Name:** Monad Testnet
-* **Chain ID:** `10143` (`0x279f`)
-* **Currency Symbol:** `MON` (18 decimals)
-* **Primary RPC:** `https://testnet-rpc.monad.xyz`
-* **WebSocket RPC:** `wss://testnet-rpc.monad.xyz`
-* **Live Deployed Contract:** [`0x77547711ea2726F16C8BCeDD37a347C139D346E7`](https://testnet.monadvision.com/address/0x77547711ea2726F16C8BCeDD37a347C139D346E7)
-* **Deployment Tx:** [`0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f`](https://testnet.monadvision.com/tx/0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f)
-* **Frontend Config Export:** [`contracts/export/dracarysContract.ts`](file:///k:/Tech/Hackathon/Dracarys_Monad/contracts/export/dracarysContract.ts)
+## Project Structure
 
+```text
+Frontend/   Next.js frontend and PWA
+backend/    FastAPI verification and proof API
+contracts/  Solidity smart contracts and deployment files
+```
 
----
+Important frontend areas:
 
-## 👥 3-Person Team Workstreams & Prompts
+- `Frontend/src/app/`: routes, manifest, and global responsive styles
+- `Frontend/src/components/`: dashboard, cards, modals, calendar, approvals, and wallet UI
+- `Frontend/src/hooks/`: local demo state and contract interaction hooks
+- `Frontend/src/lib/`: chain configuration, mock data, types, and contract configuration
 
-### Teammate 1: Frontend Lead (`Frontend/`)
-* **Stack:** Next.js 16 (App Router), Tailwind CSS, Lucide Icons, Viem, Wagmi, Canvas Confetti.
-* **Deliverable:** Mobile-first PWA with dark obsidian theme, Monad purple (`#836EF9`), flame indicators (`🔥`), daily calendar check-in rings, and 1-tap friend approval buttons.
+## Team
 
-### Teammate 2: Backend Lead (`backend/`)
-* **Stack:** FastAPI (Python), Uvicorn, Pydantic, Python-multipart.
-* **Deliverable:** Verification engine, proof upload API, metadata hashing, real-time social feed, and 24h deadline/slacker burn evaluation.
-
-### Teammate 3 (You): Monad & Smart Contract Lead (`contracts/`)
-* **Stack:** Hardhat, Solidity (`DracarysEscrow.sol`), Monad Testnet deployment, and Vercel GitHub CI/CD orchestration.
-
----
-
-## 🏆 Hackathon Strategic Intelligence
-* **[about_event.md](file:///k:/Tech/Hackathon/Dracarys_Monad/about_event.md)**: Master event brief, rules, judging mechanics, and canonical Monad testnet contracts.
-* **[previous_projects.md](file:///k:/Tech/Hackathon/Dracarys_Monad/previous_projects.md)**: Catalog of 84+ historical winners across 50+ Blitz events worldwide.
-
-Group:
-Chandrakiran Reddy
-Abubakaer
-Abdul Jalil.
+- Chandrakiran Reddy
+- Abubaker
+- Abdul Jalil.
