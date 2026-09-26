@@ -40,6 +40,9 @@ export default function DocsPage() {
             Streaker is a social habit-staking app. Create a challenge, commit MON, submit proof,
             and let friends help verify progress.
           </p>
+          <div style={{ margin: '20px 0', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <img src="/screenshots/image.png" alt="Dracarys Application Preview" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          </div>
 
           <section id="how-to-use" className="docs-section">
             <h2>How to use the app</h2>

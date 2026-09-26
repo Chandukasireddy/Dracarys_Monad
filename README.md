@@ -1,27 +1,114 @@
-# Dracarys: Social Habit Staking on Monad
+<div align="center">
+  <h1>🐉 Dracarys | Streaker</h1>
+  <p><b>Social Habit Staking Protocol on Monad Blockchain</b></p>
+  <p><i>"Feed the flame every day or get burned."</i></p>
 
-Dracarys helps people build habits with small financial commitments. Create a challenge, check in with proof, and let friends approve each other's progress. The current frontend includes a mock-data demo mode and Monad Testnet wallet configuration.
+  <p>
+    <a href="https://monad.xyz"><img src="https://img.shields.io/badge/Blockchain-Monad%20Testnet%20(10143)-8A2BE2?style=for-the-badge&logo=ethereum&logoColor=white" alt="Monad Testnet" /></a>
+    <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Frontend-Next.js%2014-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
+    <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" /></a>
+    <a href="https://soliditylang.org"><img src="https://img.shields.io/badge/Smart%20Contracts-Solidity-363636?style=for-the-badge&logo=solidity&logoColor=white" alt="Solidity" /></a>
+  </p>
 
-Built for the Monad Blitz Berlin Hackathon.
+  <br />
 
-Read the complete project documentation in [`docs/README.md`](docs/README.md), or run the frontend and open [`/docs`](http://localhost:3000/docs).
+  <img src="screenshots/image.png" alt="Dracarys Web Application Screenshot" width="95%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
 
-## How To Use The App
+  <br />
+  <br />
+</div>
 
-1. Open the app and choose **Create a challenge**.
-2. Select a habit, choose the challenge duration, and set the daily MON commitment.
-3. Submit the challenge. In demo mode, the challenge is saved in your browser.
-4. Open an active challenge and choose **Check in**.
-5. Add proof, such as a photo or note, and submit it.
-6. Use **Friend approvals** to review pending proofs and approve a friend's check-in.
-7. Use **My progress** to review completed days, streaks, and milestones.
-8. Use **Connect wallet** when you want to connect a wallet to the Monad Testnet flow.
+---
 
-The frontend is responsive. On small screens, use the bottom navigation to switch between streaks, friends, progress, and challenge creation.
+## 🌟 Overview
 
-## Run The Frontend
+**Dracarys (Streaker)** helps people build habits with financial commitments backed by **Monad**'s sub-second execution speeds. 
 
-Requirements: Node.js 20.9 or newer.
+Users lock micro-stakes (e.g., `0.05 MON/day`). Daily proof submissions and peer approvals unlock instant micro-payouts, while slacking burns the stake to the pool and faithful friends.
+
+*Built for the **Monad Blitz Berlin Hackathon**.*
+
+---
+
+## 🚀 Key Features
+
+<table>
+  <tr>
+    <td width="50%">
+      <h3>🔥 Habit Staking Escrow</h3>
+      <p>Lock MON stakes for 7, 14, 21, or 30 days. Earn your daily stake back with each verified check-in.</p>
+    </td>
+    <td width="50%">
+      <h3>🤝 Peer Approval Workflow</h3>
+      <p>Social verification system where accountability buddies verify daily proof photos/notes before payouts are triggered.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>⚡ Sub-Second Monad Payouts</h3>
+      <p>Leverages Monad testnet smart contract escrow (<code>DracarysEscrow.sol</code>) for instant reward distribution.</p>
+    </td>
+    <td width="50%">
+      <h3>📱 Mobile-First PWA & Web App</h3>
+      <p>Fully responsive progressive web app (PWA) with install prompts, desktop & mobile optimized controls.</p>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🛠️ Tech Stack & Architecture
+
+| Layer | Technology | Description |
+| :--- | :--- | :--- |
+| **Smart Contract** | Solidity 0.8.20 / Hardhat | `DracarysEscrow.sol` escrow vault, proof tracking, peer approval, slash/payout logic |
+| **Frontend** | Next.js 14, TypeScript, Viem, Wagmi, Tailwind / CSS | Responsive UI, Web3 wallet connector, local & contract state hooks |
+| **Backend API** | FastAPI (Python), Neon PostgreSQL | User authentication, streak invitations, proof storage, activity feeds |
+| **Blockchain** | Monad Testnet (`Chain ID: 10143`) | High-throughput 10,000 TPS EVM execution |
+
+```text
+┌─────────────────────────┐          ┌───────────────────────────┐
+│     Next.js Frontend    │ ◄──────► │     FastAPI Backend       │
+│  (UI, Viem, Wagmi Wallet)│          │  (PostgreSQL, Invitations)│
+└────────────┬────────────┘          └───────────────────────────┘
+             │
+             ▼
+┌────────────────────────────────────────────────────────────────┐
+│             Monad Testnet (Chain ID: 10143)                    │
+│     DracarysEscrow.sol (Staking Vault & Instant Payouts)       │
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚡ Monad Testnet Deployment
+
+| Parameter | Value |
+| :--- | :--- |
+| **Network Name** | Monad Testnet |
+| **Chain ID** | `10143` |
+| **Currency Symbol** | `MON` |
+| **RPC URL** | `https://testnet-rpc.monad.xyz` |
+| **Contract Address** | [`0x77547711ea2726F16C8BCeDD37a347C139D346E7`](https://testnet.monadvision.com/address/0x77547711ea2726F16C8BCeDD37a347C139D346E7) |
+| **Deployment Tx** | [`0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f`](https://testnet.monadvision.com/tx/0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f) |
+
+---
+
+## 📖 How To Use The App
+
+1. **Create a Challenge**: Select a habit, choose duration (7–30 days), and set your daily MON commitment.
+2. **Invite Accountability Buddies**: Share your unique invite code or send direct in-app invitations to registered friends.
+3. **Daily Check-In**: Upload proof (photo or note) daily to maintain your active streak.
+4. **Peer Approval**: Friends review your proof in the **Friend Approvals** tab. A single approval triggers an instant sub-second MON payout on Monad.
+5. **Track Progress**: Monitor total streaks, earned rewards, and milestones in **My Progress**.
+
+---
+
+## 🏃 Quick Start Guide
+
+### 1. Run The Frontend
+
+Requirements: **Node.js 20.9+**
 
 ```bash
 cd Frontend
@@ -31,81 +118,40 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-To test the app from a phone on the same Wi-Fi network, open the local network URL printed by Next.js. The development script listens on all network interfaces.
-
-Production checks:
-
+Production checks & tests:
 ```bash
 npm run typecheck
 npm run build
-npm start
 ```
 
-Useful frontend scripts:
-
-```bash
-npm run test:e2e
-npm run format:check
-```
-
-## Run The Backend
-
-The backend provides proof upload, verification, social feed, pending approvals, and slacker evaluation APIs.
+### 2. Run The Backend
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate
+
+# Activate environment:
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
+
 pip install -r requirements.txt
 python run.py
 ```
 
-The API runs at [http://127.0.0.1:8000](http://127.0.0.1:8000). Open the interactive API documentation at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+API runs at `http://127.0.0.1:8000`. Interactive docs available at `http://127.0.0.1:8000/docs`.
 
-Run backend tests with:
+### 3. Smart Contract Verification & Testing
 
 ```bash
-python test_api.py
+cd contracts
+npm install
+npx hardhat test
 ```
 
-## Monad Testnet
+---
 
-| Setting | Value |
-| :--- | :--- |
-| Network | Monad Testnet |
-| Chain ID | `10143` |
-| Currency | `MON` |
-| RPC | `https://testnet-rpc.monad.xyz` |
-| Contract | [`0x77547711ea2726F16C8BCeDD37a347C139D346E7`](https://testnet.monadvision.com/address/0x77547711ea2726F16C8BCeDD37a347C139D346E7) |
-| Deployment transaction | [`0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f`](https://testnet.monadvision.com/tx/0x3f343b0fd404bca74230852e7f2c0aad4338a8959f42a9bcaa4c5893081c779f) |
+## 👥 Team - Dracarys 🚀
 
-## Main Features
-
-- Habit challenges with daily MON commitments
-- Photo and note proof check-ins
-- Friend approval workflow
-- Streak calendar and progress tracking
-- Wallet connection for Monad Testnet
-- Installable, responsive PWA experience
-- Local demo persistence through browser storage
-
-## Project Structure
-
-```text
-Frontend/   Next.js frontend and PWA
-backend/    FastAPI verification and proof API
-contracts/  Solidity smart contracts and deployment files
-```
-
-Important frontend areas:
-
-- `Frontend/src/app/`: routes, manifest, and global responsive styles
-- `Frontend/src/components/`: dashboard, cards, modals, calendar, approvals, and wallet UI
-- `Frontend/src/hooks/`: local demo state and contract interaction hooks
-- `Frontend/src/lib/`: chain configuration, mock data, types, and contract configuration
-
-## Team - Dracarys
-
-- Chandrakiran Reddy
-- Abubaker
-- Abdul Jalil
+- **Chandrakiran Reddy**
+- **Abubaker**
+- **Abdul Jalil**
