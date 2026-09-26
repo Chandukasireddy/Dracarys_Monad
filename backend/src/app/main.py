@@ -61,11 +61,14 @@ def root():
     }
 
 
+from .db.database import db
+
 @app.get("/health")
 def health():
     return {
         "status": "healthy",
         "engine": "FastAPI + Monad Sub-second Streamer",
+        "database": db.status(),
         "network": {
             "name": "Monad Testnet",
             "chain_id": 10143,
@@ -73,3 +76,7 @@ def health():
             "finality": "800ms"
         }
     }
+
+@app.get("/api/db-status")
+def db_status():
+    return db.status()

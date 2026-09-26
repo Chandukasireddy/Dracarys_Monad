@@ -35,29 +35,50 @@ def get_db_path() -> Path:
 class DatabaseManager:
     def __init__(self):
         self.db_path = get_db_path()
-        self.postgres_url = os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL")
+        self.postgres_url = (
+            os.getenv("POSTGRES_URL")
+            or os.getenv("DATABASE_URL")
+            or os.getenv("POSTGRES_URL_NON_POOLING")
+            or os.getenv("POSTGRES_PRISMA_URL")
+        )
         self.is_postgres = False
+        self.postgres_error = None
 
         if self.postgres_url:
             try:
                 import psycopg2
-                # Test postgres connection
-                test_conn = psycopg2.connect(self.postgres_url)
+                conn_url = self.postgres_url
+                if "sslmode=" not in conn_url:
+                    conn_url += ("&" if "?" in conn_url else "?") + "sslmode=require"
+                test_conn = psycopg2.connect(conn_url)
                 test_conn.close()
+                self.postgres_url = conn_url
                 self.is_postgres = True
                 print("Connected to PostgreSQL / Neon Database successfully!")
             except Exception as e:
+                self.postgres_error = str(e)
                 print(f"PostgreSQL connection failed, falling back to SQLite: {e}")
                 self.is_postgres = False
 
         self.init_schema()
 
+    def status(self) -> Dict[str, Any]:
+        env_keys = [k for k in ["POSTGRES_URL", "DATABASE_URL", "POSTGRES_URL_NON_POOLING", "POSTGRES_PRISMA_URL"] if os.getenv(k)]
+        return {
+            "engine": "PostgreSQL (Neon)" if self.is_postgres else "SQLite (/tmp)",
+            "is_postgres": self.is_postgres,
+            "has_env_vars": len(env_keys) > 0,
+            "detected_env_vars": env_keys,
+            "postgres_error": self.postgres_error,
+            "users_count": len(self.list_all_users()),
+            "streaks_count": len(self.list_streaks())
+        }
+
     def get_connection(self):
         if self.is_postgres and self.postgres_url:
             import psycopg2
             from psycopg2.extras import RealDictCursor
-            conn = psycopg2.connect(self.postgres_url, cursor_factory=RealDictCursor)
-            return conn
+            return psycopg2.connect(self.postgres_url, cursor_factory=RealDictCursor)
         else:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
