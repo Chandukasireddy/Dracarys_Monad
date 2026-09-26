@@ -140,9 +140,9 @@ export function StreakerApp() {
           <span className="brand-icon">
             <Flame fill="currentColor" size={23} />
           </span>
-          dracarys<span className="brand-period">.</span>
+          streaker<span className="brand-period">.</span>
         </span>
-        <p>Kindle your flame. A little every day.</p>
+        <p>Build streaks. A little every day.</p>
       </div>
     );
   return (
@@ -151,11 +151,11 @@ export function StreakerApp() {
         Skip to content
       </a>
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Dracarys home">
+        <a className="brand" href="/" aria-label="Streaker home">
           <span className="brand-icon">
             <Flame fill="currentColor" size={23} />
           </span>
-          dracarys<span className="brand-period">.</span>
+          streaker<span className="brand-period">.</span>
         </a>
         <div className="sidebar-caption">A LITTLE EVERY DAY.</div>
         <nav aria-label="Main navigation">
@@ -209,13 +209,13 @@ export function StreakerApp() {
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumb">
-            <span>DRACARYS · HABIT STAKING ESCROW</span>
+            <span>STREAKER · HABIT STAKING ESCROW</span>
             <button
               className="mobile-brand"
               onClick={() => setDialog('account')}
               aria-label="Open profile and account"
             >
-              <Flame size={20} fill="currentColor" /> dracarys.
+              <Flame size={20} fill="currentColor" /> streaker.
             </button>
           </div>
           <div className="topbar-actions">
@@ -1084,7 +1084,7 @@ export function StreakerApp() {
       {dialog === 'settings' && (
         <Modal
           title="Your little corner."
-          subtitle="Make Dracarys feel like you."
+          subtitle="Make Streaker feel like you."
           onClose={() => setDialog(null)}
         >
           <div
@@ -1138,7 +1138,7 @@ export function StreakerApp() {
               )
             }
           >
-            Install Dracarys on your phone
+            Install Streaker on your phone
           </button>
           <button
             className="button secondary full"

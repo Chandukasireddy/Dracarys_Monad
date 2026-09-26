@@ -42,7 +42,7 @@ export function PwaControl({ notify }: { notify: (message: string) => void }) {
             );
         }}
       >
-        <Download size={16} /> Install Dracarys <span>↗</span>
+        <Download size={16} /> Install Streaker <span>↗</span>
       </button>
       {offline &&
         createPortal(

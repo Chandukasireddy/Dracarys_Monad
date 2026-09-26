@@ -181,7 +181,7 @@ export function AccountModal({
 
       const createdUser = await res.json();
       onLogin(createdUser);
-      notify(`Welcome to Dracarys, ${displayName.trim()}! Flame kindled 🔥`);
+      notify(`Welcome to Streaker, ${displayName.trim()}! Streak ignited 🔥`);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
@@ -197,7 +197,7 @@ export function AccountModal({
 
   function handleLogOut() {
     onLogout();
-    notify('Logged out of Dracarys.');
+    notify('Logged out of Streaker.');
     setMode('login');
   }
 
@@ -211,10 +211,10 @@ export function AccountModal({
     <Modal
       title={
         mode === 'view'
-          ? 'Your Dracarys Profile'
+          ? 'Your Streaker Profile'
           : mode === 'create'
             ? 'Create Your Account'
-            : 'Sign In to Dracarys'
+            : 'Sign In to Streaker'
       }
       subtitle={
         mode === 'view'
@@ -428,7 +428,7 @@ export function AccountModal({
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              DRACARYS
+              STREAKER
             </h2>
             <p style={{ margin: 0, fontSize: '13px', color: '#919099' }}>
               Sub-second habit staking & peer consensus on Monad
@@ -562,7 +562,7 @@ export function AccountModal({
               <Flame size={30} fill="#ffffff" color="#ffffff" />
             </div>
             <h3 style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 700 }}>
-              Join DRACARYS 🔥
+              Join STREAKER 🔥
             </h3>
             <p style={{ margin: 0, fontSize: '12.5px', color: '#919099' }}>
               Commit micro-stakes. Build unbreakable habits on Monad.

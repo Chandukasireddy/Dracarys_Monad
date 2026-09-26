@@ -3,11 +3,11 @@ import { Providers } from '@/components/providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Dracarys 🐉🔥 — Habit Staking on Monad Testnet',
+  title: 'Streaker 🔥 — Habit Staking on Monad Testnet',
   description:
-    'Social habit-staking with sub-second finality on Monad. Daily streaks, peer consensus, and micro-stakes. Kindle your flame or get burned.',
-  applicationName: 'Dracarys',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Dracarys' },
+    'Social habit-staking with sub-second finality on Monad. Daily streaks, peer consensus, and micro-stakes. Build streaks or get burned.',
+  applicationName: 'Streaker',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Streaker' },
   icons: { icon: '/icon.svg', apple: '/icon-192.png' },
 };
 
