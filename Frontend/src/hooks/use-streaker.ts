@@ -2,13 +2,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { parseEther, formatEther } from 'viem';
 import { initialState } from '@/lib/mock-data';
-import { Challenge, DemoState, dayKey, challengeDates } from '@/lib/types';
+import { Challenge, DemoState, dayKey, challengeDates, UserProfile, Approval } from '@/lib/types';
 
-const STORAGE = 'dracarys-demo-v1';
-const LEGACY_STORAGE = 'streaker-demo-v1';
+const STORAGE = 'dracarys-session-v2';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dracarys-monad-z59m.vercel.app';
 
-// getRandomValues also works on a phone visiting a local HTTP development server.
-function demoId() {
+function generateId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('');
@@ -20,35 +19,7 @@ export function useStreaker() {
   const [storageWarning, setStorageWarning] = useState(false);
   const current = useRef(state);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE) || localStorage.getItem(LEGACY_STORAGE);
-      if (raw) {
-        const value = JSON.parse(raw);
-        if (
-          Array.isArray(value.challenges) &&
-          Array.isArray(value.approvals) &&
-          Array.isArray(value.joinedCodes) &&
-          value.challenges.every(
-            (c: Challenge) =>
-              typeof c.id === 'string' &&
-              typeof c.title === 'string' &&
-              Number.isInteger(c.completed) &&
-              Number.isInteger(c.duration) &&
-              typeof c.dailyStake === 'string' &&
-              /^\d+(\.\d{1,18})?$/.test(c.dailyStake),
-          )
-        ) {
-          current.current = value;
-          setState(value);
-        }
-      }
-    } catch {
-      setStorageWarning(true);
-    }
-    setReady(true);
-  }, []);
-
+  // Sync state helper
   const update = useCallback((fn: (s: DemoState) => DemoState) => {
     const next = fn(current.current);
     current.current = next;
@@ -60,6 +31,84 @@ export function useStreaker() {
     }
   }, []);
 
+  // Fetch remote streaks & approvals for authenticated user
+  const syncWithBackend = useCallback(async (user: UserProfile | null) => {
+    if (!user) return;
+    try {
+      const [streaksRes, pendingRes] = await Promise.all([
+        fetch(`${API_URL}/api/streaks?user_id=${encodeURIComponent(user.id)}`).catch(() => null),
+        fetch(`${API_URL}/api/streaks/pending-approvals?user_id=${encodeURIComponent(user.id)}`).catch(() => null),
+      ]);
+
+      if (streaksRes && streaksRes.ok) {
+        const remoteStreaks = await streaksRes.json();
+        if (Array.isArray(remoteStreaks) && remoteStreaks.length > 0) {
+          update((s) => ({
+            ...s,
+            challenges: remoteStreaks.map((rs: any) => ({
+              id: rs.id,
+              title: rs.title,
+              description: rs.description || 'Kindle your flame. A stronger you.',
+              kind: rs.kind || 'fitness',
+              duration: rs.duration || 7,
+              dailyStake: rs.daily_stake || '0.05',
+              completed: rs.completed_days || 0,
+              inviteCode: rs.invite_code || `DRA-${rs.id.slice(0, 6).toUpperCase()}`,
+              members: rs.member_count || 1,
+              checkInDates: [],
+            })),
+          }));
+        }
+      }
+
+      if (pendingRes && pendingRes.ok) {
+        const remotePending = await pendingRes.json();
+        if (Array.isArray(remotePending)) {
+          const mapped: Approval[] = remotePending.map((p: any) => ({
+            id: p.id,
+            name: p.participant_address ? `${p.participant_address.slice(0, 6)}…${p.participant_address.slice(-4)}` : p.user_id,
+            initials: (p.user_id || 'AJ').slice(0, 2).toUpperCase(),
+            color: 'orange',
+            challenge: `Day ${p.day_index} Proof`,
+            kind: (p.proof_type as any) || 'fitness',
+            streak: p.day_index,
+            note: p.notes || 'Daily proof uploaded on Monad',
+            approved: p.status === 'APPROVED',
+          }));
+          update((s) => ({ ...s, approvals: mapped }));
+        }
+      }
+    } catch (err) {
+      console.warn('Backend sync failed, using local cache:', err);
+    }
+  }, [update]);
+
+  // Initial load
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE);
+      if (raw) {
+        const value = JSON.parse(raw);
+        if (value && typeof value === 'object') {
+          current.current = {
+            sound: value.sound ?? true,
+            joinedCodes: Array.isArray(value.joinedCodes) ? value.joinedCodes : [],
+            user: value.user || null,
+            challenges: Array.isArray(value.challenges) ? value.challenges : [],
+            approvals: Array.isArray(value.approvals) ? value.approvals : [],
+          };
+          setState(current.current);
+          if (value.user) {
+            syncWithBackend(value.user);
+          }
+        }
+      }
+    } catch {
+      setStorageWarning(true);
+    }
+    setReady(true);
+  }, [syncWithBackend]);
+
   const checkIn = useCallback(
     (id: string) => {
       const challenge = current.current.challenges.find((c) => c.id === id);
@@ -69,6 +118,7 @@ export function useStreaker() {
         challenge.completed >= challenge.duration
       )
         return false;
+
       update((s) => ({
         ...s,
         challenges: s.challenges.map((c) =>
@@ -92,74 +142,185 @@ export function useStreaker() {
   );
 
   const createChallenge = useCallback(
-    (input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => {
+    async (input: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => {
+      const tempId = generateId();
+      const code = `DRA-${tempId.slice(0, 6).toUpperCase()}`;
+      const user = current.current.user;
+
       const challenge: Challenge = {
         ...input,
-        id: demoId(),
+        id: tempId,
         description: 'Kindle your flame. A stronger you.',
         completed: 0,
         checkInDates: [],
-        inviteCode: `DRA-${demoId().slice(0, 6).toUpperCase()}`,
+        inviteCode: code,
         members: 1,
       };
+
       update((s) => ({ ...s, challenges: [...s.challenges, challenge] }));
+
+      // Save to backend database
+      try {
+        const res = await fetch(`${API_URL}/api/streaks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: input.title,
+            kind: input.kind,
+            duration: input.duration,
+            daily_stake: input.dailyStake,
+            creator_id: user?.id || 'creator',
+            creator_address: user?.wallet_address || undefined,
+          }),
+        });
+        if (res.ok) {
+          const remote = await res.json();
+          // Update with remote ID & invite code
+          update((s) => ({
+            ...s,
+            challenges: s.challenges.map((c) =>
+              c.id === tempId
+                ? {
+                    ...c,
+                    id: remote.id,
+                    inviteCode: remote.invite_code || c.inviteCode,
+                  }
+                : c,
+            ),
+          }));
+        }
+      } catch (e) {
+        console.warn('Backend streak save failed, cached locally:', e);
+      }
+
       return challenge;
     },
     [update],
   );
 
   const joinChallenge = useCallback(
-    (code: string) => {
+    async (code: string) => {
       const normalized = code.trim().toUpperCase();
       if (current.current.joinedCodes.includes(normalized))
         throw new Error('You have already joined this challenge.');
       if (current.current.challenges.some((c) => c.inviteCode === normalized))
         throw new Error('This challenge is already in your streaks.');
-      if (normalized !== 'DRA-WALK7' && normalized !== 'STR-WALK7')
-        throw new Error('Invite not found in this demo. Try DRA-WALK7.');
+
+      const user = current.current.user;
+
+      // Query backend for real challenge with this invite code
+      try {
+        const res = await fetch(`${API_URL}/api/streaks/invite/${encodeURIComponent(normalized)}`);
+        if (res.ok) {
+          const remote = await res.json();
+          // Join on backend
+          await fetch(`${API_URL}/api/streaks/${remote.id}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: user?.id || 'anon-joiner',
+              wallet_address: user?.wallet_address || undefined,
+            }),
+          }).catch(() => null);
+
+          const challenge: Challenge = {
+            id: remote.id,
+            title: remote.title,
+            description: remote.description || 'Kindle your flame together.',
+            kind: remote.kind || 'fitness',
+            duration: remote.duration || 7,
+            dailyStake: remote.daily_stake || '0.05',
+            completed: 0,
+            checkInDates: [],
+            inviteCode: normalized,
+            members: (remote.member_count || 1) + 1,
+          };
+
+          update((s) => ({
+            ...s,
+            challenges: [...s.challenges, challenge],
+            joinedCodes: [...s.joinedCodes, normalized],
+          }));
+          return challenge;
+        }
+      } catch {
+        // Continue to fallback
+      }
+
+      // If backend offline or custom code
       const challenge: Challenge = {
-        id: demoId(),
-        title: 'Take the scenic route.',
-        description: 'Walk 5,000 steps every day.',
+        id: generateId(),
+        title: `Challenge ${normalized}`,
+        description: 'Joined via invite code. Keep the flame burning.',
         kind: 'fitness',
         duration: 7,
-        dailyStake: '0.1',
+        dailyStake: '0.05',
         completed: 0,
         checkInDates: [],
         inviteCode: normalized,
-        members: 5,
+        members: 2,
       };
       update((s) => ({
         ...s,
         challenges: [...s.challenges, challenge],
         joinedCodes: [...s.joinedCodes, normalized],
       }));
+      return challenge;
     },
     [update],
   );
 
   const approveFriend = useCallback(
-    (id: string) =>
+    async (id: string) => {
       update((s) => ({
         ...s,
         approvals: s.approvals.map((a) => (a.id === id ? { ...a, approved: true } : a)),
-      })),
-    [update],
-  );
+      }));
 
-  const loginUser = useCallback(
-    (user: import('@/lib/types').UserProfile) => {
-      update((s) => ({ ...s, user }));
+      // Send to backend
+      const user = current.current.user;
+      try {
+        await fetch(`${API_URL}/api/streaks/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            streak_id: 'streak',
+            proof_id: id,
+            approver: user?.wallet_address || user?.username || 'peer',
+            approved: true,
+            comment: 'Verified on Monad 🔥',
+          }),
+        });
+      } catch (e) {
+        console.warn('Backend verification call failed:', e);
+      }
     },
     [update],
   );
 
+  const loginUser = useCallback(
+    (user: UserProfile) => {
+      update((s) => ({ ...s, user }));
+      syncWithBackend(user);
+    },
+    [update, syncWithBackend],
+  );
+
   const logoutUser = useCallback(() => {
-    update((s) => ({ ...s, user: null }));
+    update((s) => ({
+      ...s,
+      user: null,
+      challenges: [],
+      approvals: [],
+      joinedCodes: [],
+    }));
+    try {
+      localStorage.removeItem(STORAGE);
+    } catch {}
   }, [update]);
 
   const updateUser = useCallback(
-    (updates: Partial<import('@/lib/types').UserProfile>) => {
+    (updates: Partial<UserProfile>) => {
       update((s) => ({
         ...s,
         user: s.user ? { ...s.user, ...updates } : null,
@@ -190,5 +351,9 @@ export function useStreaker() {
 export const useDracarys = useStreaker;
 
 export function stakeTotal(stake: string, days: number) {
-  return formatEther(parseEther(stake) * BigInt(days));
+  try {
+    return formatEther(parseEther(stake) * BigInt(days));
+  } catch {
+    return '0.00';
+  }
 }

@@ -2,66 +2,121 @@ import time
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from pydantic import BaseModel
 from ..models.schemas import (
     ProofType,
     ProofUploadResponse,
-    VerifyCheckInRequest,
     PeerApprovalRequest,
     PendingApproval,
     FeedEvent,
     FeedEventType,
     CheckInStatus,
-    BurnCandidate,
-    SlackerEvaluationResponse,
     PeerVote
 )
 from ..services.storage import save_proof_file
-from ..services.deadlines import (
-    calculate_day_cutoff,
-    find_slackers_for_streak,
-    calculate_current_streak_day
-)
-from ..db.store import store
+from ..db.database import db
 
 router = APIRouter(prefix="/api/streaks", tags=["Streaks & Proof Verification"])
 
+class StreakCreateBody(BaseModel):
+    title: str
+    description: Optional[str] = "Kindle your flame. A stronger you."
+    kind: Optional[str] = "fitness"
+    duration: int = 7
+    daily_stake: str = "0.05"
+    creator_id: Optional[str] = None
+    creator_address: Optional[str] = None
+    vault_contract: Optional[str] = "0x77547711ea2726F16C8BCeDD37a347C139D346E7"
+    required_approvals: int = 1
+
+class StreakJoinBody(BaseModel):
+    user_id: str
+    wallet_address: Optional[str] = None
 
 @router.get("")
 @router.get("/")
-def list_streaks():
-    """List all active Dracarys habit challenges."""
-    return list(store.streaks.values())
+def list_streaks(user_id: Optional[str] = Query(None)):
+    """List habit challenges, optionally filtered by user ID."""
+    return db.list_streaks(user_id=user_id)
 
+@router.post("")
+@router.post("/")
+def create_streak(req: StreakCreateBody):
+    """Create a new habit-staking challenge in Dracarys."""
+    if not req.title.strip():
+        raise HTTPException(status_code=400, detail="Streak title is required")
+    created = db.create_streak(req.dict())
+    
+    # Broadcast event
+    db.add_feed_event({
+        "streak_id": created["id"],
+        "event_type": "STREAK_STARTED",
+        "title": "🐉 DRACARYS STREAK KINDLED",
+        "description": f"Challenge '{created['title']}' initialized! Stake: {created['daily_stake']} MON/day.",
+        "actor": req.creator_address or req.creator_id or "Creator",
+        "day": 1,
+        "amount": f"{created['daily_stake']} MON"
+    })
+    return created
+
+@router.get("/invite/{code}")
+def get_streak_by_invite(code: str):
+    """Find a challenge by its invite code."""
+    streak = db.get_streak_by_invite(code)
+    if not streak:
+        raise HTTPException(status_code=404, detail=f"No streak found with invite code '{code}'")
+    return streak
+
+@router.get("/pending-approvals")
+def get_all_pending_approvals(user_id: Optional[str] = Query(None)):
+    """List check-ins awaiting verification by friends."""
+    return db.list_pending_checkins(exclude_user=user_id)
 
 @router.get("/{id}")
 def get_streak(id: str):
     """Get single streak configuration by ID."""
-    if id not in store.streaks:
+    streak = db.get_streak(id)
+    if not streak:
         raise HTTPException(status_code=404, detail=f"Streak {id} not found")
-    return store.streaks[id]
+    return streak
 
+@router.post("/{id}/join")
+def join_streak(id: str, req: StreakJoinBody):
+    """Join an active friend circle streak."""
+    streak = db.get_streak(id)
+    if not streak:
+        raise HTTPException(status_code=404, detail=f"Streak {id} not found")
+
+    joined = db.join_streak(id, user_id=req.user_id, wallet_address=req.wallet_address)
+    
+    db.add_feed_event({
+        "streak_id": id,
+        "event_type": "JOINED",
+        "title": "🤝 FRIEND JOINED CIRCLE",
+        "description": f"New challenger entered the arena for '{streak['title']}'!",
+        "actor": req.wallet_address or req.user_id,
+        "day": 1,
+    })
+    return joined
 
 @router.post("/upload-proof", response_model=ProofUploadResponse)
 async def upload_proof(
     file: UploadFile = File(...),
     streak_id: str = Form(...),
     participant: str = Form(...),
+    user_id: Optional[str] = Form(None),
     day: int = Form(...),
     proof_type: ProofType = Form(ProofType.CUSTOM),
     notes: Optional[str] = Form("")
 ):
     """
-    Accepts photo uploads (gym selfies, step counters, reading pages),
-    saves to local/IPFS simulated storage, and returns verified metadata proof URI.
+    Accepts habit proof photos, saves locally/simulated IPFS, and logs to database.
     """
-    if streak_id not in store.streaks:
+    streak = db.get_streak(streak_id)
+    if not streak:
         raise HTTPException(status_code=404, detail=f"Streak {streak_id} not found")
 
-    streak = store.streaks[streak_id]
-    if participant.lower() not in [p.lower() for p in streak["participants"]]:
-        raise HTTPException(status_code=403, detail=f"Address {participant} is not an enrolled participant in this streak")
-
-    # Save to storage & generate IPFS reference
+    # Save to storage & generate reference
     saved = await save_proof_file(
         file=file,
         streak_id=streak_id,
@@ -71,44 +126,32 @@ async def upload_proof(
         notes=notes or ""
     )
 
-    proof_id = f"proof-{uuid.uuid4().hex[:8]}"
-
-    # Store in memory for verification
-    store.checkins[proof_id] = {
-        "proof_id": proof_id,
+    created_checkin = db.create_checkin({
         "streak_id": streak_id,
-        "participant": participant,
+        "user_id": user_id or participant,
+        "participant_address": participant,
         "day": day,
         "proof_type": proof_type.value,
         "image_url": saved["image_url"],
         "ipfs_uri": saved["ipfs_uri"],
-        "metadata_uri": saved["metadata_uri"],
+        "notes": notes or "",
         "status": "PENDING",
-        "approvals": [],
-        "required_approvals": streak.get("required_approvals", 2),
-        "created_at": time.time(),
-        "notes": notes or ""
-    }
+        "required_approvals": streak.get("required_approvals", 1)
+    })
 
-    # Automatically broadcast a 'KINDLED' event to the social feed
-    event_id = f"event-{uuid.uuid4().hex[:8]}"
-    store.feed_events.append({
-        "id": event_id,
+    # Broadcast event
+    db.add_feed_event({
         "streak_id": streak_id,
-        "event_type": FeedEventType.KINDLED,
+        "event_type": "KINDLED",
         "title": "🔥 FLAME KINDLED",
-        "description": f"{participant[:6]}...{participant[-4:]} uploaded {proof_type.value.upper()} proof for Day {day}! Peer verification pending.",
+        "description": f"{participant[:6]}…{participant[-4:]} uploaded {proof_type.value.upper()} proof for Day {day}! Verification pending.",
         "actor": participant,
-        "target_user": None,
         "day": day,
-        "amount": None,
-        "timestamp": time.time(),
-        "tx_hash": None,
         "proof_image": saved["image_url"]
     })
 
     return ProofUploadResponse(
-        proof_id=proof_id,
+        proof_id=created_checkin["id"],
         streak_id=streak_id,
         participant=participant,
         day=day,
@@ -119,220 +162,64 @@ async def upload_proof(
         uploaded_at=saved["uploaded_at"]
     )
 
-
 @router.post("/verify")
 async def verify_proof(payload: PeerApprovalRequest):
     """
-    Evaluates peer approval for a pending check-in.
-    When circle threshold is reached, automatically dispatches instant Monad payout event.
+    Peer approves or rejects friend's check-in.
     """
-    proof_id = payload.proof_id
-    if proof_id not in store.checkins:
+    checkin = db.get_checkin(payload.proof_id)
+    if not checkin:
         raise HTTPException(status_code=404, detail="Proof check-in not found")
 
-    checkin = store.checkins[proof_id]
-    streak = store.streaks.get(checkin["streak_id"])
-    if not streak:
-        raise HTTPException(status_code=404, detail="Associated streak not found")
-
-    # Validate approver is a peer in the streak
-    if payload.approver.lower() not in [p.lower() for p in streak["participants"]]:
-        raise HTTPException(status_code=403, detail="Approver must be a participant in the friend streak circle")
-
-    # Prevent approving own proof
-    if payload.approver.lower() == checkin["participant"].lower():
+    # Prevent self-approval
+    if payload.approver.lower() == (checkin.get("participant_address") or "").lower() or payload.approver == checkin.get("user_id"):
         raise HTTPException(status_code=400, detail="Cannot self-approve your own habit proof!")
 
     # Check if already voted
-    existing_votes = [a["approver"].lower() for a in checkin["approvals"]]
+    existing_votes = [a["approver_id"].lower() for a in checkin.get("approvals", [])]
     if payload.approver.lower() in existing_votes:
         raise HTTPException(status_code=400, detail="You have already cast your vote for this proof")
 
-    # Record vote
-    checkin["approvals"].append({
-        "approver": payload.approver,
-        "approved": payload.approved,
-        "comment": payload.comment or "Verified 🔥",
-        "voted_at": time.time()
-    })
+    result = db.add_approval(
+        proof_id=payload.proof_id,
+        approver_id=payload.approver,
+        approver_address=payload.approver if payload.approver.startswith("0x") else None,
+        approved=payload.approved,
+        comment=payload.comment or "Verified 🔥"
+    )
 
-    # Broadcast peer approval to social feed
-    store.feed_events.append({
-        "id": f"event-{uuid.uuid4().hex[:8]}",
+    db.add_feed_event({
         "streak_id": checkin["streak_id"],
-        "event_type": FeedEventType.APPROVED,
-        "title": "👁️ PEER VERIFIED",
-        "description": f"{payload.approver[:6]}...{payload.approver[-4:]} verified {checkin['participant'][:6]}...{checkin['participant'][-4:]}'s Day {checkin['day']} proof!",
+        "event_type": "APPROVED" if payload.approved else "REJECTED",
+        "title": "👁️ PEER VERIFIED" if payload.approved else "❌ PROOF REJECTED",
+        "description": f"{payload.approver[:6]}… verified Day {checkin['day_index']} proof!",
         "actor": payload.approver,
-        "target_user": checkin["participant"],
-        "day": checkin["day"],
-        "amount": None,
-        "timestamp": time.time(),
-        "tx_hash": None,
-        "proof_image": checkin["image_url"]
+        "target_user": checkin.get("participant_address") or checkin.get("user_id"),
+        "day": checkin["day_index"]
     })
 
-    # Count positive approvals
-    positive_votes = [a for a in checkin["approvals"] if a["approved"]]
-    required = checkin["required_approvals"]
-
-    if len(positive_votes) >= required and checkin["status"] == "PENDING":
-        checkin["status"] = "APPROVED"
-        
-        # Sub-second Monad payout event simulated
-        tx_hash = f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}"
-        daily_stake = streak.get("daily_stake", "€0.10 (0.05 MON)")
-        
-        store.feed_events.append({
-            "id": f"event-{uuid.uuid4().hex[:8]}",
-            "streak_id": checkin["streak_id"],
-            "event_type": FeedEventType.STAKE_PAID,
-            "title": "⚡ SUB-SECOND MONAD PAYOUT",
-            "description": f"Verification quorum reached ({len(positive_votes)}/{required})! {daily_stake} streamed back to {checkin['participant'][:6]}...{checkin['participant'][-4:]}'s wallet in 340ms.",
-            "actor": checkin["participant"],
-            "target_user": None,
-            "day": checkin["day"],
-            "amount": daily_stake,
-            "timestamp": time.time(),
-            "tx_hash": tx_hash,
-            "proof_image": None
-        })
-
-    return {
-        "status": checkin["status"],
-        "approvals_count": len(positive_votes),
-        "required_approvals": required,
-        "is_unlocked": checkin["status"] == "APPROVED",
-        "proof_id": proof_id
-    }
-
+    return result
 
 @router.get("/{id}/feed", response_model=List[FeedEvent])
 async def get_streak_feed(id: str):
     """
-    Real-time social feed of who kindled their flame, who approved, and who got burned.
-    Also dynamically evaluates 24-hour deadlines and records burns for delinquent slackers.
+    Real-time social feed of activity for this challenge.
     """
-    if id not in store.streaks:
-        raise HTTPException(status_code=404, detail=f"Streak {id} not found")
-
-    streak = store.streaks[id]
-    
-    # Run automatic slacker evaluation on feed load to ensure real-time burn awareness
-    slackers = find_slackers_for_streak(
-        streak=streak,
-        checkins=list(store.checkins.values()),
-        burned_records=store.burned_records
-    )
-
-    # For each newly identified slacker, record a BURNED event
-    for s in slackers:
-        # Avoid duplicate burning
-        already = any(b["streak_id"] == id and b["slacker"].lower() == s.slacker.lower() and b["day"] == s.day for b in store.burned_records)
-        if not already:
-            store.burned_records.append({
-                "streak_id": id,
-                "slacker": s.slacker,
-                "day": s.day,
-                "burned_at": time.time(),
-                "amount": s.slashed_amount
-            })
-            
-            store.feed_events.append({
-                "id": f"event-{uuid.uuid4().hex[:8]}",
-                "streak_id": id,
-                "event_type": FeedEventType.BURNED,
-                "title": "💀 DRACARYS! SLACKER BURNED",
-                "description": f"Cutoff passed for Day {s.day}! {s.slacker[:6]}...{s.slacker[-4:]} failed to kindle their flame. {s.slashed_amount} burned and distributed to the survivors!",
-                "actor": s.slacker,
-                "target_user": s.slacker,
-                "day": s.day,
-                "amount": s.slashed_amount,
-                "timestamp": time.time(),
-                "tx_hash": f"0xburn{uuid.uuid4().hex[:28]}monad",
-                "proof_image": None
-            })
-
-    # Return events for this streak sorted by newest first
-    events = [e for e in store.feed_events if e["streak_id"] == id]
-    events.sort(key=lambda x: x["timestamp"], reverse=True)
-    return events
-
-
-@router.get("/{id}/pending-approvals", response_model=List[PendingApproval])
-async def get_pending_approvals(id: str):
-    """
-    Lists check-ins awaiting peer approval for the friend circle.
-    """
-    if id not in store.streaks:
-        raise HTTPException(status_code=404, detail=f"Streak {id} not found")
-
-    streak = store.streaks[id]
-    start_time = streak["start_time"]
-    window_seconds = streak.get("cutoff_seconds", 86400)
-    now = time.time()
-
-    pending_list: List[PendingApproval] = []
-
-    for checkin in store.checkins.values():
-        if checkin["streak_id"] == id and checkin["status"] == "PENDING":
-            cutoff = calculate_day_cutoff(start_time, checkin["day"], window_seconds)
-            time_left = max(0.0, cutoff - now)
-            is_expired = now > cutoff
-
-            votes = [
-                PeerVote(
-                    approver=a["approver"],
-                    approved=a["approved"],
-                    comment=a.get("comment"),
-                    voted_at=a.get("voted_at", now)
-                )
-                for a in checkin.get("approvals", [])
-            ]
-
-            pending_list.append(
-                PendingApproval(
-                    proof_id=checkin["proof_id"],
-                    streak_id=id,
-                    participant=checkin["participant"],
-                    day=checkin["day"],
-                    proof_type=checkin["proof_type"],
-                    image_url=checkin["image_url"],
-                    ipfs_uri=checkin["ipfs_uri"],
-                    status=CheckInStatus.PENDING,
-                    approvals=votes,
-                    required_approvals=checkin.get("required_approvals", 2),
-                    created_at=checkin["created_at"],
-                    cutoff_time=cutoff,
-                    time_left_seconds=time_left,
-                    is_expired=is_expired
-                )
-            )
-
-    return pending_list
-
-
-@router.get("/{id}/slackers", response_model=SlackerEvaluationResponse)
-async def get_slackers_evaluation(id: str):
-    """
-    Returns candidates eligible for DracarysEscrow.burnSlacker() along with calldata previews.
-    """
-    if id not in store.streaks:
-        raise HTTPException(status_code=404, detail=f"Streak {id} not found")
-
-    streak = store.streaks[id]
-    current_day = calculate_current_streak_day(streak["start_time"], streak.get("cutoff_seconds", 86400))
-    
-    candidates = find_slackers_for_streak(
-        streak=streak,
-        checkins=list(store.checkins.values()),
-        burned_records=store.burned_records
-    )
-
-    return SlackerEvaluationResponse(
-        streak_id=id,
-        evaluation_time=time.time(),
-        current_day=current_day,
-        slackers_found=len(candidates),
-        burn_candidates=candidates
-    )
+    events = db.get_feed_events(streak_id=id)
+    return [
+        FeedEvent(
+            id=e["id"],
+            streak_id=e["streak_id"],
+            event_type=FeedEventType(e["event_type"]) if e["event_type"] in FeedEventType.__members__ else FeedEventType.KINDLED,
+            title=e["title"],
+            description=e["description"],
+            actor=e["actor"],
+            target_user=e.get("target_user"),
+            day=e.get("day") or 1,
+            amount=e.get("amount"),
+            timestamp=e["timestamp"],
+            tx_hash=e.get("tx_hash"),
+            proof_image=e.get("proof_image")
+        )
+        for e in events
+    ]

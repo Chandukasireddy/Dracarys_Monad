@@ -162,11 +162,11 @@ export function StreakerApp() {
           <PwaControl notify={notify} />
           <button className="profile" onClick={() => setDialog('account')}>
             <span className={`avatar profile-avatar ${store.user?.avatar_color || 'purple'}`}>
-              {store.user?.initials || 'CK'}
+              {store.user?.initials || (store.user ? store.user.display_name.slice(0, 2).toUpperCase() : '?')}
             </span>
             <span>
-              <strong>{store.user?.display_name || 'Sign In'}</strong>
-              <small>{store.user ? `@${store.user.username}` : 'Create account'}</small>
+              <strong>{store.user?.display_name || 'Sign In / Register'}</strong>
+              <small>{store.user ? `@${store.user.username}` : 'Manage Account'}</small>
             </span>
             <ChevronDown size={15} />
           </button>
@@ -175,22 +175,53 @@ export function StreakerApp() {
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumb">
-            <span>YOUR DAILY DOSE OF DISCIPLINE</span>
+            <span>DRACARYS · HABIT STAKING ESCROW</span>
             <button
               className="mobile-brand"
-              onClick={() => setDialog('settings')}
-              aria-label="Open profile and settings"
+              onClick={() => setDialog('account')}
+              aria-label="Open profile and account"
             >
               <Flame size={20} fill="currentColor" /> dracarys.
             </button>
           </div>
           <div className="topbar-actions">
-            <span className="demo-label">
-              <span /> Demo mode
-            </span>
             <span className="network-label">
-              <i /> Monad Testnet
+              <i /> Monad Testnet (10143)
             </span>
+            {store.user ? (
+              <button
+                className="user-profile-top-button"
+                onClick={() => setDialog('account')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#191920',
+                  border: '1px solid #2f2d38',
+                  padding: '4px 10px 4px 6px',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  color: '#f5f4f7',
+                }}
+              >
+                <span
+                  className={`avatar tiny ${store.user.avatar_color || 'purple'}`}
+                  style={{ width: '22px', height: '22px', fontSize: '11px' }}
+                >
+                  {store.user.initials || store.user.display_name.slice(0, 2).toUpperCase()}
+                </span>
+                <span style={{ fontSize: '12.5px', fontWeight: 600 }}>{store.user.display_name}</span>
+                <span style={{ fontSize: '11px', color: '#ff7a45' }}>{store.user.streak_count || 0} 🔥</span>
+              </button>
+            ) : (
+              <button
+                className="button primary"
+                onClick={() => setDialog('account')}
+                style={{ padding: '6px 12px', fontSize: '12.5px', height: '34px', gap: '5px' }}
+              >
+                <Flame size={14} /> Sign In
+              </button>
+            )}
             <button
               className="notification-button icon-button"
               aria-label="Notifications"
@@ -344,21 +375,25 @@ export function StreakerApp() {
                       Your next check-in is a promise kept.
                     </p>
                     <div className="hero-footer">
-                      <button
-                        className="button flame-button"
-                        disabled={!remaining.length}
-                        onClick={() => setCheckIn(remaining[0])}
-                      >
-                        {remaining.length ? 'Keep the streak going' : 'You showed up today'}
-                        {remaining.length ? <ArrowUpRight size={17} /> : <Check size={17} />}
-                      </button>
+                      {store.challenges.length === 0 ? (
+                        <button
+                          className="button flame-button"
+                          onClick={() => setDialog('create')}
+                        >
+                          Kindle your first habit stake <Plus size={17} />
+                        </button>
+                      ) : (
+                        <button
+                          className="button flame-button"
+                          disabled={!remaining.length}
+                          onClick={() => setCheckIn(remaining[0])}
+                        >
+                          {remaining.length ? 'Keep the streak going' : 'You showed up today'}
+                          {remaining.length ? <ArrowUpRight size={17} /> : <Check size={17} />}
+                        </button>
+                      )}
                       <div className="hero-proof">
-                        <div className="avatar-stack">
-                          <span className="avatar tiny peach">M</span>
-                          <span className="avatar tiny lilac">A</span>
-                          <span className="avatar tiny mint">S</span>
-                        </div>
-                        <span>Better with your people.</span>
+                        <span style={{ fontSize: '12.5px', color: '#cac9d1' }}>Sub-second 0.3s escrow on Monad.</span>
                       </div>
                     </div>
                   </div>

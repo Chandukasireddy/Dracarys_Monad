@@ -31,8 +31,8 @@ export function FriendApprovals({
         {pending.length === 0 ? (
           <div className="empty-state">
             <PartyPopper size={34} />
-            <h3>You’re a good accountability friend.</h3>
-            <p>All caught up. Your crew is cheering you on.</p>
+            <h3>No pending friend approvals.</h3>
+            <p>When friends in your streak circles upload daily habit proofs, they will appear here for verification!</p>
           </div>
         ) : (
           <div className={compact ? 'friend-list' : 'approval-grid'}>

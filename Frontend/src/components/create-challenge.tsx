@@ -22,7 +22,7 @@ export function CreateChallenge({
   notify,
 }: {
   onClose: () => void;
-  onCreate: (c: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => Challenge;
+  onCreate: (c: Pick<Challenge, 'title' | 'duration' | 'dailyStake' | 'kind'>) => Challenge | Promise<Challenge>;
   notify: (s: string) => void;
 }) {
   const [step, setStep] = useState(1),
@@ -210,9 +210,12 @@ export function CreateChallenge({
                       );
                       return;
                     }
-                    setCreated(
-                      onCreate({ title: title.trim(), duration, dailyStake: stake, kind }),
-                    );
+                    const result = onCreate({ title: title.trim(), duration, dailyStake: stake, kind });
+                    if (result instanceof Promise) {
+                      result.then((c) => setCreated(c));
+                    } else {
+                      setCreated(result);
+                    }
                     setError('');
                   }}
                 >
@@ -314,11 +317,7 @@ export function JoinChallenge({
           required
         />
         <p className="helper">
-          Try{' '}
-          <button type="button" className="text-link" onClick={() => setCode('DRA-WALK7')}>
-            DRA-WALK7
-          </button>{' '}
-          to join the demo walking challenge.
+          Enter any active challenge invite code (e.g. DRA-XXXXXX) shared by your habit circle.
         </p>
         {error && (
           <p className="form-error" role="alert">

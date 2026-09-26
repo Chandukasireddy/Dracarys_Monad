@@ -18,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 from fastapi.testclient import TestClient
 from src.app.main import app
 
-
 client = TestClient(app)
 
 def test_dracarys_pipeline():
@@ -31,12 +30,44 @@ def test_dracarys_pipeline():
     assert res.status_code == 200, f"Health check failed: {res.text}"
     print("✅ 1. Health check passed:", res.json()["engine"])
 
-    streak_id = "streak-berlin-7d"
+    # 2. Register real user
+    reg_res = client.post("/api/users/register", json={
+        "username": "testchad",
+        "display_name": "Chad Bro",
+        "password": "chadpassword123",
+        "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    })
+    assert reg_res.status_code == 200, f"Registration failed: {reg_res.text}"
+    user = reg_res.json()
+    print("✅ 2. User registered:", user["username"])
+
+    # 3. Create a real streak
     alice = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     bob = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
     chad = "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 
-    # 2. Upload proof (Chad uploads proof for Day 2)
+    streak_res = client.post("/api/streaks", json={
+        "title": "🔥 Monad Blitz Berlin 10k Steps & Gym",
+        "creator_id": user["id"],
+        "creator_address": chad,
+        "duration": 7,
+        "daily_stake": "0.05",
+        "required_approvals": 1
+    })
+    assert streak_res.status_code == 200, f"Streak creation failed: {streak_res.text}"
+    streak = streak_res.json()
+    streak_id = streak["id"]
+    print("✅ 3. Created streak:", streak_id, streak["invite_code"])
+
+    # 4. Join friend bob to streak
+    join_res = client.post(f"/api/streaks/{streak_id}/join", json={
+        "user_id": "bob-user",
+        "wallet_address": bob
+    })
+    assert join_res.status_code == 200, f"Join streak failed: {join_res.text}"
+    print("✅ 4. Friend joined streak")
+
+    # 5. Upload proof (Chad uploads proof for Day 1)
     fake_photo_bytes = b"fake_gym_selfie_image_bytes_here"
     file_payload = {
         "file": ("gym_selfie.jpg", io.BytesIO(fake_photo_bytes), "image/jpeg")
@@ -44,7 +75,8 @@ def test_dracarys_pipeline():
     form_data = {
         "streak_id": streak_id,
         "participant": chad,
-        "day": 2,
+        "user_id": user["id"],
+        "day": 1,
         "proof_type": "gym",
         "notes": "Bench press 100kg PR today! 🔥"
     }
@@ -53,87 +85,37 @@ def test_dracarys_pipeline():
     assert upload_res.status_code == 200, f"Upload proof failed: {upload_res.text}"
     proof_data = upload_res.json()
     proof_id = proof_data["proof_id"]
-    print(f"✅ 2. Uploaded proof successfully: {proof_id}")
-    print(f"   IPFS URI: {proof_data['ipfs_uri']}")
-    print(f"   Metadata URI: {proof_data['metadata_uri']}")
+    print(f"✅ 5. Uploaded proof successfully: {proof_id}")
 
-    # 3. Check pending approvals
-    pending_res = client.get(f"/api/streaks/{streak_id}/pending-approvals")
-    assert pending_res.status_code == 200, f"Pending approvals failed: {pending_res.text}"
-    pending = pending_res.json()
-    print(f"✅ 3. Retrieved {len(pending)} pending approval items awaiting peer review.")
+    # 6. Check pending approvals
+    pending_res = client.get("/api/streaks/pending-approvals")
+    assert pending_res.status_code == 200
+    pending_list = pending_res.json()
+    assert len(pending_list) >= 1
+    print(f"✅ 6. Pending check-in found in queue: {len(pending_list)}")
 
-    # 4. Peer approval 1: Alice approves Chad's proof
-    vote1_res = client.post("/api/streaks/verify", json={
-        "streak_id": streak_id,
-        "proof_id": proof_id,
-        "approver": alice,
-        "approved": True,
-        "comment": "Form was clean! Approved 🔥"
-    })
-    assert vote1_res.status_code == 200, f"Vote 1 failed: {vote1_res.text}"
-    print("✅ 4. Peer approval 1 recorded by Alice (1/2 votes)")
-
-    # 5. Peer approval 2: Bob approves Chad's proof (triggers quorum & Monad sub-second payout)
-    vote2_res = client.post("/api/streaks/verify", json={
+    # 7. Bob verifies Chad's proof
+    verify_res = client.post("/api/streaks/verify", json={
         "streak_id": streak_id,
         "proof_id": proof_id,
         "approver": bob,
         "approved": True,
-        "comment": "Total beast mode! Approved."
+        "comment": "Legit bench form verified on Monad! 🔥"
     })
-    assert vote2_res.status_code == 200, f"Vote 2 failed: {vote2_res.text}"
-    vote2_data = vote2_data = vote2_res.json()
-    assert vote2_data["status"] == "APPROVED"
-    assert vote2_data["is_unlocked"] is True
-    print("✅ 5. Quorum reached! Chad's flame unlocked & €0.10 payout triggered.")
+    assert verify_res.status_code == 200
+    verify_data = verify_res.json()
+    assert verify_data["status"] == "APPROVED"
+    assert verify_data["is_unlocked"] is True
+    print(f"✅ 7. Peer verification quorum reached: {verify_data['status']}")
 
-    # 6. Verify Social Feed (Who kindled, who approved, who got burned)
+    # 8. Feed check
     feed_res = client.get(f"/api/streaks/{streak_id}/feed")
-    assert feed_res.status_code == 200, f"Feed retrieval failed: {feed_res.text}"
+    assert feed_res.status_code == 200
     feed = feed_res.json()
-    print(f"✅ 6. Real-time social feed retrieved: {len(feed)} events logged.")
-    for item in feed[:4]:
-        print(f"   [{item['event_type']}] {item['title']}: {item['description']}")
-
-    # 7. Slacker evaluation & Burn Helper
-    slackers_res = client.get(f"/api/streaks/{streak_id}/slackers")
-    assert slackers_res.status_code == 200, f"Slacker evaluation failed: {slackers_res.text}"
-    slackers_data = slackers_res.json()
-    print(f"✅ 7. Slacker & Deadline evaluation completed:")
-    print(f"   Slackers found: {slackers_data['slackers_found']}")
-    for s in slackers_data["burn_candidates"]:
-        print(f"   🔥 Slacker candidate: {s['slacker']} (Day {s['day']})")
-        print(f"      Contract Call: {s['contract_function']}")
-        print(f"      Calldata preview: {s['calldata_preview']}")
-
-    # 8. User Account Creation & Login test
-    users_res = client.get("/api/users")
-    assert users_res.status_code == 200, f"Users listing failed: {users_res.text}"
-    users_list = users_res.json()
-    assert len(users_list) >= 3, "Expected at least 3 seeded users"
-    print(f"✅ 8. User registry active: {len(users_list)} friends seeded ({', '.join(u['display_name'] for u in users_list)})")
-
-    # Register custom user
-    new_user_res = client.post("/api/users/register", json={
-        "username": "monad_blitz",
-        "display_name": "Blitz Winner",
-        "wallet_address": "0x1234567890123456789012345678901234567890",
-        "bio": "Habit staking champion",
-        "avatar_color": "lilac"
-    })
-    assert new_user_res.status_code == 200, f"User registration failed: {new_user_res.text}"
-    user_data = new_user_res.json()
-    assert user_data["username"] == "monad_blitz"
-    print(f"✅ 9. User account created: {user_data['display_name']} (@{user_data['username']}) - Initials: {user_data['initials']}")
-
-    # Login
-    login_res = client.post("/api/users/login", json={"username_or_wallet": "monad_blitz"})
-    assert login_res.status_code == 200, f"Login failed: {login_res.text}"
-    print(f"✅ 10. Login successful for @{login_res.json()['username']}")
-
+    assert len(feed) >= 1
+    print(f"✅ 8. Social feed events captured: {len(feed)}")
     print("=" * 60)
-    print("🎉 ALL DRACARYS VERIFICATION & USER AUTH TESTS PASSED!")
+    print("🔥 ALL DRACARYS BACKEND PIPELINE TESTS PASSED!")
     print("=" * 60)
 
 if __name__ == "__main__":
