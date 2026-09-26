@@ -26,6 +26,21 @@ from ..db.store import store
 router = APIRouter(prefix="/api/streaks", tags=["Streaks & Proof Verification"])
 
 
+@router.get("")
+@router.get("/")
+def list_streaks():
+    """List all active Dracarys habit challenges."""
+    return list(store.streaks.values())
+
+
+@router.get("/{id}")
+def get_streak(id: str):
+    """Get single streak configuration by ID."""
+    if id not in store.streaks:
+        raise HTTPException(status_code=404, detail=f"Streak {id} not found")
+    return store.streaks[id]
+
+
 @router.post("/upload-proof", response_model=ProofUploadResponse)
 async def upload_proof(
     file: UploadFile = File(...),

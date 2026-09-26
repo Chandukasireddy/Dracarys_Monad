@@ -35,7 +35,7 @@ class DracarysStore:
             "cutoff_seconds": one_day,
             "required_approvals": 2,
             "participants": [alice, bob, chad],
-            "vault_contract": "0xDracarysEscrowMonad10143",
+            "vault_contract": "0x77547711ea2726F16C8BCeDD37a347C139D346E7",
             "created_at": start_time - 3600
         }
 
