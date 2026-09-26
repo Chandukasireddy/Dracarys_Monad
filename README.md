@@ -104,7 +104,7 @@ Important frontend areas:
 - `Frontend/src/hooks/`: local demo state and contract interaction hooks
 - `Frontend/src/lib/`: chain configuration, mock data, types, and contract configuration
 
-## Team
+## Team - Dracarys
 
 - Chandrakiran Reddy
 - Abubaker
