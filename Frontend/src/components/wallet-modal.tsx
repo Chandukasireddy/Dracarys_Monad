@@ -13,7 +13,7 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal
       title={isConnected ? 'Monad Wallet Connected' : 'Connect to Monad Testnet'}
-      subtitle="Connect MetaMask or any injected EVM browser wallet to sign Dracarys habit escrows."
+      subtitle="Connect MetaMask or any injected EVM browser wallet to sign Streaker habit escrows."
       onClose={onClose}
     >
       <div className="wallet-illustration">
@@ -105,7 +105,7 @@ export function WalletModal({ onClose }: { onClose: () => void }) {
 
           <div style={{ marginTop: '10px', textAlign: 'center' }}>
             <a
-              href="https://metamask.app.link/dapp/dracarys-monad.vercel.app"
+              href="https://metamask.app.link/dapp/streaker-monad.vercel.app"
               className="button secondary full"
               style={{
                 display: 'inline-flex',

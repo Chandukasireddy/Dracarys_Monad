@@ -14,7 +14,7 @@ export default function DocsPage() {
       <header className="docs-header">
         <Link className="docs-brand" href="/">
           <span className="docs-brand-mark">✦</span>
-          dracarys<span>.</span>
+          streaker<span>.</span>
         </Link>
         <Link className="docs-back" href="/">
           Back to app
@@ -34,10 +34,10 @@ export default function DocsPage() {
         </aside>
 
         <article className="docs-content">
-          <span className="docs-eyebrow">Dracarys on Monad</span>
+          <span className="docs-eyebrow">Streaker on Monad</span>
           <h1>Build habits with a little skin in the game.</h1>
           <p className="docs-lede">
-            Dracarys is a social habit-staking app. Create a challenge, commit MON, submit proof,
+            Streaker is a social habit-staking app. Create a challenge, commit MON, submit proof,
             and let friends help verify progress.
           </p>
 
@@ -95,7 +95,7 @@ export default function DocsPage() {
           </section>
 
           <footer className="docs-footer">
-            <Link href="/">Open Dracarys</Link>
+            <Link href="/">Open Streaker</Link>
             <span>Built for Monad Blitz Berlin.</span>
           </footer>
         </article>

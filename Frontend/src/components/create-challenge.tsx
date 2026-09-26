@@ -258,7 +258,7 @@ export function CreateChallenge({
               if (navigator.share) {
                 try {
                   await navigator.share({
-                    title: 'Join my Dracarys challenge',
+                    title: 'Join my Streaker challenge',
                     text: created.title,
                     url: invite,
                   });

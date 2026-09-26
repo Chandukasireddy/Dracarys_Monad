@@ -68,7 +68,7 @@ export function MobileSyncModal({
         </div>
         <p style={{ margin: 0, color: '#b9b6cb' }}>
           MetaMask on your laptop is a <strong>desktop browser extension</strong>. Mobile browsers (Safari/Chrome on iOS & Android) cannot access laptop extensions or local keys.
-          Your <strong>Dracarys account (username, streaks & friends)</strong> is already 100% synced via Neon PostgreSQL!
+          Your <strong>Streaker account (username, streaks & friends)</strong> is already 100% synced via Neon PostgreSQL!
         </p>
       </div>
 
@@ -78,10 +78,10 @@ export function MobileSyncModal({
           <Smartphone size={16} /> Method 1 (Easiest): Open in MetaMask Mobile Browser
         </h4>
         <p style={{ fontSize: '12.5px', color: '#9d99ab', margin: '0 0 10px' }}>
-          Open Dracarys directly inside the MetaMask Mobile App browser. It automatically detects your wallet!
+          Open Streaker directly inside the MetaMask Mobile App browser. It automatically detects your wallet!
         </p>
         <a
-          href="https://metamask.app.link/dapp/dracarys-monad.vercel.app"
+          href="https://metamask.app.link/dapp/streaker-monad.vercel.app"
           target="_blank"
           rel="noreferrer"
           className="button primary full"
@@ -93,7 +93,7 @@ export function MobileSyncModal({
             textDecoration: 'none',
           }}
         >
-          <ExternalLink size={16} /> Open Dracarys in MetaMask App
+          <ExternalLink size={16} /> Open Streaker in MetaMask App
         </a>
       </div>
 
