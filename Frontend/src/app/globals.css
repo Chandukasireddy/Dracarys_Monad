@@ -707,6 +707,9 @@ textarea::placeholder {
   font-size: 22px;
   letter-spacing: -0.7px;
   font-weight: 700;
+  /* Prevent numbers from shifting width as values change */
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
 .stat-card strong small {
@@ -714,6 +717,9 @@ textarea::placeholder {
   color: #8ea0ba;
   letter-spacing: 0;
   font-weight: 500;
+  /* Keep label pinned to baseline, never floating above */
+  align-self: flex-end;
+  margin-bottom: 1px;
 }
 
 .stat-card strong em {
@@ -721,6 +727,9 @@ textarea::placeholder {
   font-size: 8px;
   color: #b8c6ea;
   font-style: normal;
+  /* Trend indicator sits at bottom of number */
+  align-self: flex-end;
+  margin-bottom: 1px;
 }
 
 .stat-demo {
@@ -794,10 +803,15 @@ textarea::placeholder {
   line-height: 1.1;
   letter-spacing: -1.7px;
   font-weight: 700;
+  /* Streak number won't cause layout shift */
+  font-variant-numeric: tabular-nums;
 }
 
 .hero-content h2 > span {
   color: #ffb27d;
+  /* Subtitle line sits baseline-aligned */
+  display: block;
+  font-variant-numeric: normal;
 }
 
 .hero-content > p {
@@ -934,6 +948,9 @@ textarea::placeholder {
   text-transform: uppercase;
   transform: rotate(-8deg);
   backdrop-filter: blur(8px);
+  /* Number + label always vertically centred */
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .panel {
@@ -996,25 +1013,37 @@ textarea::placeholder {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   transform: rotate(90deg);
+  /* Prevent fractional pixel shifts */
+  will-change: transform;
 }
 
 .progress-ring strong {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
   font-size: 24px;
   letter-spacing: -0.8px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .progress-ring strong > span {
-  font-size: 15px;
+  font-size: 14px;
   color: #7b8aa6;
-  margin-left: 2px;
+  margin-left: 1px;
+  align-self: flex-end;
+  margin-bottom: 1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-ring small {
-  margin-top: 2px;
-  font-size: 6px;
-  letter-spacing: 1.1px;
+  margin-top: 3px;
+  font-size: clamp(7px, 0.8vw, 9px);
+  letter-spacing: 1px;
   color: #8da0bf;
+  text-align: center;
 }
 
 .momentum-content > div > strong {
@@ -1301,9 +1330,10 @@ textarea::placeholder {
 
 .habit-progress-label {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   margin-top: 18px;
+  gap: 6px;
 }
 
 .habit-progress-label strong {
@@ -1312,6 +1342,8 @@ textarea::placeholder {
   gap: 4px;
   font-size: 10px;
   color: #ffc89a;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .reading .habit-progress-label strong {
@@ -1355,8 +1387,9 @@ textarea::placeholder {
 .habit-finances {
   display: flex;
   justify-content: space-between;
-  align-items: start;
+  align-items: flex-start;
   margin-top: 18px;
+  gap: 4px;
 }
 
 .habit-finances > span {
@@ -1366,11 +1399,14 @@ textarea::placeholder {
 
 .habit-finances strong {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 3px;
   margin-top: 7px;
   font-size: 12px;
   color: #f0f5ff;
+  /* All MON values same column width */
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .habit-finances small {
@@ -2496,18 +2532,27 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  /* align-items: start from top so all 3 columns start at same baseline */
+  justify-content: flex-start;
+  gap: 6px;
   color: #dfe9ff;
+  text-align: center;
 }
 
 .progress-totals strong {
-  font-size: 28px;
+  font-size: clamp(22px, 2.8vw, 30px);
   letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  /* Fixed min-width so 1-digit and 2-digit numbers don't shift siblings */
+  min-width: 2ch;
+  text-align: center;
 }
 
 .progress-totals span {
-  font-size: 9px;
+  font-size: clamp(10px, 1vw, 12px);
   color: #94a6c6;
+  text-align: center;
 }
 
 .milestone-card {
