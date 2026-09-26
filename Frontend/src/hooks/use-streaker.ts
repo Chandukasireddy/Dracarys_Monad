@@ -147,6 +147,27 @@ export function useStreaker() {
     [update],
   );
 
+  const loginUser = useCallback(
+    (user: import('@/lib/types').UserProfile) => {
+      update((s) => ({ ...s, user }));
+    },
+    [update],
+  );
+
+  const logoutUser = useCallback(() => {
+    update((s) => ({ ...s, user: null }));
+  }, [update]);
+
+  const updateUser = useCallback(
+    (updates: Partial<import('@/lib/types').UserProfile>) => {
+      update((s) => ({
+        ...s,
+        user: s.user ? { ...s.user, ...updates } : null,
+      }));
+    },
+    [update],
+  );
+
   const setSound = (sound: boolean) => update((s) => ({ ...s, sound }));
   const reset = () => update(() => initialState());
 
@@ -158,6 +179,9 @@ export function useStreaker() {
     createChallenge,
     joinChallenge,
     approveFriend,
+    loginUser,
+    logoutUser,
+    updateUser,
     setSound,
     reset,
   };

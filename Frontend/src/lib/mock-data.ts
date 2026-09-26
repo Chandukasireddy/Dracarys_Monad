@@ -1,9 +1,46 @@
-import { pastDays, type DemoState } from './types';
+import { pastDays, type DemoState, type UserProfile } from './types';
+
+export const DEFAULT_USERS: UserProfile[] = [
+  {
+    id: 'user-chandu',
+    username: 'chandu',
+    display_name: 'Chandu',
+    wallet_address: '0x0CD9489AfcCc42B0ccFD463E53D3C9bb24c9A3f3',
+    bio: 'Building Dracarys on Monad Testnet 🔥',
+    avatar_color: 'purple',
+    initials: 'CK',
+    streak_count: 5,
+    total_earned_mon: 0.25,
+  },
+  {
+    id: 'user-abubaker',
+    username: 'abubaker',
+    display_name: 'Abubaker',
+    wallet_address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    bio: 'Building a better me every day',
+    avatar_color: 'peach',
+    initials: 'AB',
+    streak_count: 8,
+    total_earned_mon: 0.40,
+  },
+  {
+    id: 'user-abdul',
+    username: 'abdul',
+    display_name: 'Abdul',
+    wallet_address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+    bio: 'Consistency is my superpower',
+    avatar_color: 'mint',
+    initials: 'AJ',
+    streak_count: 6,
+    total_earned_mon: 0.30,
+  },
+];
 
 export function initialState(): DemoState {
   return {
     sound: true,
     joinedCodes: [],
+    user: DEFAULT_USERS[0],
     challenges: [
       {
         id: 'gym',

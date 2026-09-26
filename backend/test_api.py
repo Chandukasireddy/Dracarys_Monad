@@ -107,8 +107,33 @@ def test_dracarys_pipeline():
         print(f"      Contract Call: {s['contract_function']}")
         print(f"      Calldata preview: {s['calldata_preview']}")
 
+    # 8. User Account Creation & Login test
+    users_res = client.get("/api/users")
+    assert users_res.status_code == 200, f"Users listing failed: {users_res.text}"
+    users_list = users_res.json()
+    assert len(users_list) >= 3, "Expected at least 3 seeded users"
+    print(f"✅ 8. User registry active: {len(users_list)} friends seeded ({', '.join(u['display_name'] for u in users_list)})")
+
+    # Register custom user
+    new_user_res = client.post("/api/users/register", json={
+        "username": "monad_blitz",
+        "display_name": "Blitz Winner",
+        "wallet_address": "0x1234567890123456789012345678901234567890",
+        "bio": "Habit staking champion",
+        "avatar_color": "lilac"
+    })
+    assert new_user_res.status_code == 200, f"User registration failed: {new_user_res.text}"
+    user_data = new_user_res.json()
+    assert user_data["username"] == "monad_blitz"
+    print(f"✅ 9. User account created: {user_data['display_name']} (@{user_data['username']}) - Initials: {user_data['initials']}")
+
+    # Login
+    login_res = client.post("/api/users/login", json={"username_or_wallet": "monad_blitz"})
+    assert login_res.status_code == 200, f"Login failed: {login_res.text}"
+    print(f"✅ 10. Login successful for @{login_res.json()['username']}")
+
     print("=" * 60)
-    print("🎉 ALL DRACARYS VERIFICATION ENGINE TESTS PASSED!")
+    print("🎉 ALL DRACARYS VERIFICATION & USER AUTH TESTS PASSED!")
     print("=" * 60)
 
 if __name__ == "__main__":

@@ -42,8 +42,10 @@ async def fix_vercel_path_middleware(request: Request, call_next):
             break
     return await call_next(request)
 
-# Include Streaks router
+# Include routers
+from .api.users import router as users_router
 app.include_router(streaks_router)
+app.include_router(users_router)
 
 
 @app.get("/")

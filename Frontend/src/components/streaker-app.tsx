@@ -34,9 +34,10 @@ import { CheckInModal } from './check-in-modal';
 import { CreateChallenge, JoinChallenge } from './create-challenge';
 import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
+import { AccountModal } from './account-modal';
 
 type Tab = 'streaks' | 'friends' | 'progress';
-type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | null;
+type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | null;
 export function StreakerApp() {
   const store = useStreaker();
   const { address, isConnected } = useConnection();
@@ -159,11 +160,13 @@ export function StreakerApp() {
             <span className="motivation-line" />
           </div>
           <PwaControl notify={notify} />
-          <button className="profile" onClick={() => setDialog('settings')}>
-            <span className="avatar profile-avatar">AB</span>
+          <button className="profile" onClick={() => setDialog('account')}>
+            <span className={`avatar profile-avatar ${store.user?.avatar_color || 'purple'}`}>
+              {store.user?.initials || 'CK'}
+            </span>
             <span>
-              <strong>Abubaker</strong>
-              <small>Building a better me</small>
+              <strong>{store.user?.display_name || 'Sign In'}</strong>
+              <small>{store.user ? `@${store.user.username}` : 'Create account'}</small>
             </span>
             <ChevronDown size={15} />
           </button>
@@ -619,6 +622,15 @@ export function StreakerApp() {
         </div>
       )}
       {dialog === 'wallet' && <WalletModal onClose={() => setDialog(null)} />}
+      {dialog === 'account' && (
+        <AccountModal
+          user={store.user}
+          onClose={() => setDialog(null)}
+          onLogin={(u) => store.loginUser(u)}
+          onLogout={() => store.logoutUser()}
+          notify={notify}
+        />
+      )}
       {dialog === 'create' && (
         <CreateChallenge
           onClose={() => setDialog(null)}
@@ -757,13 +769,24 @@ export function StreakerApp() {
           subtitle="Make Dracarys feel like you."
           onClose={() => setDialog(null)}
         >
-          <div className="settings-profile">
-            <span className="avatar profile-avatar">AB</span>
+          <div
+            className="settings-profile"
+            onClick={() => setDialog('account')}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className={`avatar profile-avatar ${store.user?.avatar_color || 'purple'}`}>
+              {store.user?.initials || 'CK'}
+            </span>
             <div>
-              <h3>Abubaker</h3>
-              <p>Building a better me</p>
+              <h3>{store.user?.display_name || 'Anonymous User'}</h3>
+              <p>{store.user?.bio || 'Tap to sign in or create account'}</p>
             </div>
           </div>
+          <button className="setting-row" onClick={() => setDialog('account')}>
+            <Users size={20} />
+            <span>Manage Account / Switch Friend</span>
+            <ArrowUpRight size={18} />
+          </button>
           <button className="setting-row" onClick={() => store.setSound(!store.sound)}>
             {store.sound ? <Volume2 size={20} /> : <VolumeX size={20} />}
             <span>Celebration sounds</span>

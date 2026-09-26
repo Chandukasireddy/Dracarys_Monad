@@ -29,6 +29,8 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+*.db
+*.sqlite*
 
 # Logs & temporary files
 *.log

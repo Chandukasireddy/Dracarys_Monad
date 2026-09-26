@@ -25,11 +25,24 @@ export type Approval = {
   note: string;
   approved: boolean;
 };
+export type UserProfile = {
+  id: string;
+  username: string;
+  display_name: string;
+  wallet_address?: string;
+  bio: string;
+  avatar_color: string;
+  initials: string;
+  streak_count?: number;
+  total_earned_mon?: number;
+};
+
 export type DemoState = {
   challenges: Challenge[];
   approvals: Approval[];
   sound: boolean;
   joinedCodes: string[];
+  user: UserProfile | null;
 };
 export function dayKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
