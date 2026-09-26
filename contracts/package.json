@@ -1,0 +1,24 @@
+{
+  "name": "dracarys-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Dracarys on Monad",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:monad": "hardhat run scripts/deploy.js --network monadTestnet"
+  },
+  "keywords": [
+    "monad",
+    "dracarys",
+    "solidity",
+    "escrow"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^18.0.4",
+    "hardhat": "^2.29.1"
+  }
+}
