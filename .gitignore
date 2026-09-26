@@ -49,3 +49,10 @@ Thumbs.db
 .idea/
 *.swp
 
+
+# Streaker PWA source assets and browser test output
+!web/public/icon-192.png
+!web/public/icon-512.png
+web/playwright-report/
+web/test-results/
+web/tsconfig.tsbuildinfo
