@@ -73,6 +73,20 @@ export const DRACARYS_ABI = [
     type: 'function',
   },
   {
+    inputs: [{ internalType: 'uint256', name: '_streakId', type: 'uint256' }],
+    name: 'cancelStreak',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'uint256', name: '_streakId', type: 'uint256' }],
+    name: 'claimCompletionReward',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     inputs: [
       { internalType: 'uint256', name: '_streakId', type: 'uint256' },
       { internalType: 'address', name: '_friend', type: 'address' },

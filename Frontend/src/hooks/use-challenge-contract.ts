@@ -96,6 +96,24 @@ export function useChallengeContract() {
         }),
       ),
 
+    claimCompletionReward: (streakId: bigint) =>
+      execute(
+        encodeFunctionData({
+          abi: DRACARYS_ABI,
+          functionName: 'claimCompletionReward',
+          args: [streakId],
+        }),
+      ),
+
+    cancelStreak: (streakId: bigint) =>
+      execute(
+        encodeFunctionData({
+          abi: DRACARYS_ABI,
+          functionName: 'cancelStreak',
+          args: [streakId],
+        }),
+      ),
+
     // Backwards-compatible adapters for existing UI callers
     createChallenge: (title: string, duration: number, dailyStake: string) => {
       const stakeWei = parseEther(dailyStake);

@@ -74,4 +74,24 @@ describe("DracarysEscrow 🐉🔥", function () {
     const finalBalance = await ethers.provider.getBalance(owner.address);
     expect(finalBalance - initialBalance).to.equal(DAILY_STAKE);
   });
+
+  it("Should pay a completed winner their share of the remaining pool", async function () {
+    await dracarys.igniteStreak("One-Day Challenge", DAILY_STAKE, 1, {
+      value: DAILY_STAKE,
+    });
+    await dracarys.connect(friend1).joinStreak(1, { value: DAILY_STAKE });
+
+    await dracarys.submitProof(1, "ipfs://proof");
+    await dracarys.connect(friend1).approveCheckIn(1, owner.address, 1);
+    await ethers.provider.send("evm_increaseTime", [24 * 60 * 60]);
+    await ethers.provider.send("evm_mine");
+
+    const balanceBefore = await ethers.provider.getBalance(owner.address);
+    const tx = await dracarys.claimCompletionReward(1);
+    const receipt = await tx.wait();
+    const gasCost = receipt.gasUsed * receipt.gasPrice;
+    const balanceAfter = await ethers.provider.getBalance(owner.address);
+
+    expect(balanceAfter - balanceBefore + gasCost).to.equal(DAILY_STAKE);
+  });
 });

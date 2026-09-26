@@ -52,6 +52,7 @@ contract DracarysEscrow {
     mapping(uint256 => mapping(address => mapping(uint256 => CheckInProof))) public checkIns;
     // streakId => userAddress => dayIndex => approverAddress => hasApproved
     mapping(uint256 => mapping(address => mapping(uint256 => mapping(address => bool)))) public hasApproved;
+    mapping(uint256 => mapping(address => bool)) public completionRewardClaimed;
 
     // Events for Monad execution event streaming (monadNewHeads / monadLogs)
     event StreakIgnited(uint256 indexed streakId, string title, address indexed creator, uint256 dailyStake, uint256 totalDays);
@@ -59,6 +60,8 @@ contract DracarysEscrow {
     event ProofSubmitted(uint256 indexed streakId, address indexed user, uint256 indexed day, string proofUri);
     event FlameKindled(uint256 indexed streakId, address indexed user, uint256 indexed day, address approver, uint256 payoutAmount);
     event StakeBurned(uint256 indexed streakId, address indexed slacker, uint256 indexed day, uint256 burnedAmount);
+    event CompletionRewardClaimed(uint256 indexed streakId, address indexed winner, uint256 reward);
+    event StreakCancelled(uint256 indexed streakId, address indexed creator, uint256 refund);
 
     modifier onlyMember(uint256 _streakId) {
         require(participants[_streakId][msg.sender].hasJoined, "Dracarys: Not a participant in this flame");
@@ -238,6 +241,52 @@ contract DracarysEscrow {
         }
 
         emit StakeBurned(_streakId, _slacker, _day, burnedAmount);
+    }
+
+    /**
+     * @notice Claims an equal share of the remaining pool after completing every day.
+     *         The claim opens after the streak duration, so missed days can be burned first.
+     */
+    function claimCompletionReward(uint256 _streakId) external onlyMember(_streakId) {
+        HabitStreak storage s = streaks[_streakId];
+        Participant storage winner = participants[_streakId][msg.sender];
+        require(!winner.isBurned, "Dracarys: Participant was burned");
+        require(winner.claimedDays >= s.totalDays, "Dracarys: Complete every day first");
+        require(block.timestamp >= s.startTime + (s.totalDays * SECONDS_PER_DAY), "Dracarys: Streak is still active");
+        require(!completionRewardClaimed[_streakId][msg.sender], "Dracarys: Reward already claimed");
+
+        uint256 winnerCount = 0;
+        address[] memory members = streakMembers[_streakId];
+        for (uint256 i = 0; i < members.length; i++) {
+            Participant storage participant = participants[_streakId][members[i]];
+            if (!participant.isBurned && participant.claimedDays >= s.totalDays) winnerCount++;
+        }
+        require(winnerCount > 0, "Dracarys: No winners");
+
+        uint256 reward = s.totalPool / winnerCount;
+        completionRewardClaimed[_streakId][msg.sender] = true;
+        s.totalPool -= reward;
+        if (s.totalPool == 0) s.status = StreakStatus.COMPLETED;
+
+        (bool sent, ) = payable(msg.sender).call{value: reward}("");
+        require(sent, "Dracarys: Failed to deliver completion reward");
+        emit CompletionRewardClaimed(_streakId, msg.sender, reward);
+    }
+
+    function cancelStreak(uint256 _streakId) external {
+        HabitStreak storage s = streaks[_streakId];
+        require(msg.sender == s.creator, "Dracarys: Only creator can cancel");
+        require(s.status == StreakStatus.ACTIVE, "Dracarys: Streak is not active");
+        require(s.participantCount == 1, "Dracarys: Leave the group before cancelling");
+        require(block.timestamp < s.startTime + SECONDS_PER_DAY, "Dracarys: Streak has started");
+
+        uint256 refund = s.totalPool;
+        s.totalPool = 0;
+        s.status = StreakStatus.CANCELLED;
+        participants[_streakId][msg.sender].isBurned = true;
+        (bool sent, ) = payable(msg.sender).call{value: refund}("");
+        require(sent, "Dracarys: Failed to refund commitment");
+        emit StreakCancelled(_streakId, msg.sender, refund);
     }
 
     // View helpers

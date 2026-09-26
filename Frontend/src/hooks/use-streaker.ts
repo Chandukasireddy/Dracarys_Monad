@@ -303,6 +303,16 @@ export function useStreaker() {
     [update],
   );
 
+  const deleteChallenge = useCallback(
+    (id: string) => {
+      update((s) => ({
+        ...s,
+        challenges: s.challenges.filter((challenge) => challenge.id !== id),
+      }));
+    },
+    [update],
+  );
+
   const approveFriend = useCallback(
     async (id: string) => {
       update((s) => ({
@@ -445,6 +455,7 @@ export function useStreaker() {
     checkIn,
     createChallenge,
     joinChallenge,
+    deleteChallenge,
     inviteFriend,
     respondToInvitation,
     loadRegisteredUsers,

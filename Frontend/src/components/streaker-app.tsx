@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   X,
   Sparkles,
-  Smartphone,
 } from 'lucide-react';
 import { useStreaker, stakeTotal } from '@/hooks/use-streaker';
 import { Challenge, dayKey, challengeDates, longestRun, currentRun } from '@/lib/types';
@@ -37,12 +36,11 @@ import { CreateChallenge, JoinChallenge } from './create-challenge';
 import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
 import { AccountModal } from './account-modal';
-import { MobileSyncModal } from './mobile-sync-modal';
 import { useChallengeContract } from '@/hooks/use-challenge-contract';
 import { DRACARYS_ABI } from '@/lib/contract';
 
 type Tab = 'streaks' | 'friends' | 'progress';
-type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | 'mobile-sync' | null;
+type Dialog = 'create' | 'join' | 'wallet' | 'settings' | 'notifications' | 'account' | null;
 export function StreakerApp() {
   const store = useStreaker();
   const { address, isConnected } = useConnection();
@@ -118,6 +116,34 @@ export function StreakerApp() {
       notify('Check-in confirmed on Monad Testnet.');
     }
     return store.checkIn(checkIn?.id || '');
+  };
+  const claimCompletionReward = async () => {
+    if (!details?.onchainId) {
+      notify('This challenge was created in demo mode and has no on-chain reward.');
+      return;
+    }
+    try {
+      await contract.claimCompletionReward(BigInt(details.onchainId));
+      notify('Winner reward claimed from Monad Testnet.');
+      setDetails(null);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Reward claim failed.');
+    }
+  };
+  const removeChallenge = async () => {
+    if (!details) return;
+    if (!window.confirm('Delete this challenge from your dashboard?')) return;
+    if (details.onchainId && isConnected) {
+      try {
+        await contract.cancelStreak(BigInt(details.onchainId));
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'The challenge could not be cancelled.');
+        return;
+      }
+    }
+    store.deleteChallenge(details.id);
+    setDetails(null);
+    notify('Challenge deleted from your dashboard.');
   };
   const approve = (id: string) => {
     store.approveFriend(id);
@@ -273,27 +299,6 @@ export function StreakerApp() {
               <span>
                 {isConnected ? `${address?.slice(0, 5)}…${address?.slice(-4)}` : 'Connect wallet'}
               </span>
-            </button>
-            <button
-              className="icon-button"
-              aria-label="Mobile MetaMask Sync Guide"
-              title="Mobile & MetaMask Sync Guide"
-              onClick={() => setDialog('mobile-sync')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                background: '#191922',
-                border: '1px solid #363442',
-                padding: '6px 10px',
-                borderRadius: '999px',
-                color: '#ff824c',
-                fontSize: '12px',
-                cursor: 'pointer',
-              }}
-            >
-              <Smartphone size={15} />
-              <span style={{ fontWeight: 500 }}>Mobile Sync</span>
             </button>
           </div>
         </header>
@@ -916,6 +921,14 @@ export function StreakerApp() {
           <p className="helper">
             Synced with Neon PostgreSQL & Monad Testnet escrow contract.
           </p>
+          {details.completed >= details.duration && details.onchainId && isConnected && (
+            <button className="button primary full" onClick={claimCompletionReward}>
+              <Wallet size={17} /> Claim winner reward
+            </button>
+          )}
+          <button className="button secondary full" onClick={removeChallenge}>
+            Delete challenge
+          </button>
           <button
             className="invite-code full"
             onClick={async () => {
@@ -1122,11 +1135,6 @@ export function StreakerApp() {
             <span>{isConnected ? 'Manage wallet' : 'Connect wallet'}</span>
             <ArrowUpRight size={18} />
           </button>
-          <button className="setting-row" onClick={() => setDialog('mobile-sync')}>
-            <Smartphone size={20} />
-            <span>Mobile & MetaMask Sync Guide</span>
-            <ArrowUpRight size={18} />
-          </button>
           <div className="info-box">
             Connected to Neon PostgreSQL & Monad Testnet (Chain ID 10143). Escrow contract 0x7754...46E7.
           </div>
@@ -1151,13 +1159,6 @@ export function StreakerApp() {
             Reset demo progress
           </button>
         </Modal>
-      )}
-      {dialog === 'mobile-sync' && (
-        <MobileSyncModal
-          onClose={() => setDialog(null)}
-          walletAddress={address || store.user?.wallet_address}
-          notify={notify}
-        />
       )}
     </div>
   );
