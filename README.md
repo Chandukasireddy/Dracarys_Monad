@@ -61,3 +61,8 @@ The autonomous escrow vault lives on **Monad Testnet (Chain ID `10143`)**:
 ## 🏆 Hackathon Strategic Intelligence
 * **[about_event.md](file:///k:/Tech/Hackathon/Dracarys_Monad/about_event.md)**: Master event brief, rules, judging mechanics, and canonical Monad testnet contracts.
 * **[previous_projects.md](file:///k:/Tech/Hackathon/Dracarys_Monad/previous_projects.md)**: Catalog of 84+ historical winners across 50+ Blitz events worldwide.
+
+Group:
+Chandrakiran Reddy
+Abubakaer
+Abdul Jalil
