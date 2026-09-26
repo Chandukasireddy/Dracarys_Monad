@@ -108,4 +108,4 @@ Important frontend areas:
 
 - Chandrakiran Reddy
 - Abubaker
-- Abdul Jalil.
+- Abdul Jalil
