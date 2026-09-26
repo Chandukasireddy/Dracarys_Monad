@@ -11,8 +11,12 @@ if sys.stdout.encoding != 'utf-8':
     except Exception:
         pass
 
+from pathlib import Path
+# Add src to sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
 from fastapi.testclient import TestClient
-from app.main import app
+from src.app.main import app
 
 
 client = TestClient(app)

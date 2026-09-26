@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ```bash
 python run.py
 # Or with uvicorn directly:
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The interactive OpenAPI / Swagger documentation will be available at:  

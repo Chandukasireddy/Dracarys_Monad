@@ -1,0 +1,16 @@
+{
+  "name": "Dracarys Proof - Streak streak-berlin-7d - Day 2",
+  "description": "Verified gym check-in by 0x90F79bf6EB2c4f870365E785982E1f101E93b906 on Monad",
+  "image": "ipfs://bafkreib5b2f18254d234be03c26d89da1570ce1monaddracarys",
+  "properties": {
+    "streak_id": "streak-berlin-7d",
+    "participant": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+    "day": 2,
+    "proof_type": "gym",
+    "notes": "Bench press 100kg PR today! \ud83d\udd25",
+    "file_size": 32,
+    "sha256": "5b2f18254d234be03c26d89da1570ce1008eba998bea1b9b5e7ea76af5844fef",
+    "timestamp": 1790423130.7189429,
+    "network": "Monad Testnet (10143)"
+  }
+}

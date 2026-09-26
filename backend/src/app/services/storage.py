@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from fastapi import UploadFile
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
+UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
