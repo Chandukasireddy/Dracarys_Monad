@@ -16,6 +16,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Modal } from './modal';
 import { stakeTotal } from '@/hooks/use-streaker';
 import { Challenge, HabitKind, UserProfile } from '@/lib/types';
+const KINDS = [
+  { id: 'fitness', icon: Dumbbell, label: 'Movement' },
+  { id: 'reading', icon: BookOpen, label: 'Learning' },
+  { id: 'mindfulness', icon: Wind, label: 'Mindfulness' },
+] as const;
 export function CreateChallenge({
   onClose,
   onCreate,
@@ -88,13 +93,7 @@ export function CreateChallenge({
               />
               <label className="field-label">Pick your energy</label>
               <div className="kind-picker">
-                {(
-                  [
-                    { id: 'fitness', icon: Dumbbell, label: 'Movement' },
-                    { id: 'reading', icon: BookOpen, label: 'Learning' },
-                    { id: 'mindfulness', icon: Wind, label: 'Mindfulness' },
-                  ] as const
-                ).map((k) => (
+                {KINDS.map((k) => (
                   <button
                     key={k.id}
                     className={kind === k.id ? 'selected' : ''}
@@ -433,6 +432,90 @@ export function JoinChallenge({
         )}
         <button className="button primary full" type="submit">
           Join challenge <ArrowRight size={18} />
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+export function EditChallenge({
+  challenge,
+  onClose,
+  onSave,
+}: {
+  challenge: Challenge;
+  onClose: () => void;
+  onSave: (changes: Pick<Challenge, 'title' | 'description' | 'kind'>) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(challenge.title),
+    [description, setDescription] = useState(challenge.description),
+    [kind, setKind] = useState<HabitKind>(challenge.kind),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState('');
+  return (
+    <Modal title="Edit challenge" subtitle="Update how this challenge looks." onClose={onClose}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!title.trim()) {
+            setError('Give your challenge a name.');
+            return;
+          }
+          setSaving(true);
+          try {
+            await onSave({ title: title.trim(), description: description.trim(), kind });
+            onClose();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Your changes could not be saved.');
+            setSaving(false);
+          }
+        }}
+      >
+        <label className="field-label" htmlFor="edit-title">
+          Challenge name
+        </label>
+        <input
+          autoFocus
+          id="edit-title"
+          value={title}
+          maxLength={60}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <label className="field-label" htmlFor="edit-description">
+          Description
+        </label>
+        <input
+          id="edit-description"
+          value={description}
+          maxLength={120}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <label className="field-label">Habit type</label>
+        <div className="kind-picker">
+          {KINDS.map((k) => (
+            <button
+              type="button"
+              key={k.id}
+              className={kind === k.id ? 'selected' : ''}
+              aria-pressed={kind === k.id}
+              onClick={() => setKind(k.id)}
+            >
+              <k.icon size={23} />
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <p className="helper">
+          <LockKeyhole size={13} /> {challenge.duration} days · {challenge.dailyStake} MON / day. The
+          stake and length are locked once the challenge starts.
+        </p>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button className="button primary full" type="submit" disabled={saving}>
+          <Check size={18} /> {saving ? 'Saving…' : 'Save changes'}
         </button>
       </form>
     </Modal>

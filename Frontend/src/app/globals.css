@@ -4179,3 +4179,69 @@ html {
     transition: none;
   }
 }
+
+/* Edit / delete shortcuts on each challenge card */
+.habit-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.habit-actions .habit-details {
+  margin-left: 0;
+}
+
+.habit-action {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #7d8ca5;
+}
+
+.habit-action:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.habit-action.danger:hover {
+  color: #ff8a7a;
+  background: rgba(255, 99, 99, 0.1);
+}
+
+.button.secondary.danger {
+  color: #ff9d8f;
+}
+
+.button.secondary.danger:hover {
+  border-color: rgba(255, 99, 99, 0.4);
+  background: rgba(255, 99, 99, 0.08);
+}
+
+/* Money moved by the escrow (deducted / won) */
+.money-notification {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(146, 170, 255, 0.12);
+  background: rgba(18, 25, 35, 0.9);
+}
+
+.money-notification > svg {
+  color: #d7d2ff;
+  flex-shrink: 0;
+}
+
+.notification-list .money-lost,
+.money-summary .money-lost {
+  color: #ff9d8f;
+}
+
+.notification-list .money-won,
+.money-summary .money-won {
+  color: #8fe0a8;
+}

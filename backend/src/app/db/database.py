@@ -560,6 +560,25 @@ class DatabaseManager:
         conn.close()
         return self.get_streak(streak_id) # type: ignore
 
+    def update_streak(self, streak_id: str, user_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+        """Only the creator can rename a streak; stake and duration are locked on-chain."""
+        streak = self.get_streak(streak_id)
+        if not streak:
+            raise LookupError(f"Streak {streak_id} not found")
+        if streak["creator_id"] != user_id:
+            raise PermissionError("Only the challenge creator can edit it")
+
+        updates = {k: v for k, v in fields.items() if k in ("title", "description", "kind") and v is not None}
+        if updates:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            ph = "%s" if self.is_postgres else "?"
+            assignments = ", ".join(f"{column} = {ph}" for column in updates)
+            cursor.execute(f"UPDATE streaks SET {assignments} WHERE id = {ph}", (*updates.values(), streak_id))
+            conn.commit()
+            conn.close()
+        return self.get_streak(streak_id)  # type: ignore
+
     def delete_streak(self, streak_id: str, user_id: str) -> str:
         """Creators delete the whole streak; other members only leave it."""
         streak = self.get_streak(streak_id)

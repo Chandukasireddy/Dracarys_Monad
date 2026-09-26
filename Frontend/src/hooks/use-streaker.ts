@@ -9,6 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dracarys-monad-z59m.
 
 export type RemoteStreak = {
   id: string;
+  creator_id?: string;
   onchain_id?: string | null;
   title: string;
   description?: string;
@@ -95,6 +96,7 @@ export function useStreaker() {
                     inviteCode: rs.invite_code || `DRA-${rs.id.slice(0, 6).toUpperCase()}`,
                     members: rs.member_count || 1,
                     onchainId: rs.onchain_id || local?.onchainId,
+                    creatorId: rs.creator_id,
                   };
                 }),
                 // Challenges the backend never saved (e.g. it was offline) stay on this device.
@@ -210,9 +212,10 @@ export function useStreaker() {
       const code = `DRA-${tempId.slice(0, 6).toUpperCase()}`;
       const user = current.current.user;
 
-      const challenge: Challenge = {
+      let challenge: Challenge = {
         ...input,
         id: tempId,
+        creatorId: user?.id,
         description: 'Kindle your flame. A stronger you.',
         completed: 0,
         checkInDates: [],
@@ -239,19 +242,17 @@ export function useStreaker() {
         });
         if (res.ok) {
           const remote = await res.json();
-          // Update with remote ID & invite code
+          // Return the server's ID & invite code so the caller can invite friends right away.
+          const saved = {
+            ...challenge,
+            id: remote.id,
+            inviteCode: remote.invite_code || challenge.inviteCode,
+          };
           update((s) => ({
             ...s,
-            challenges: s.challenges.map((c) =>
-              c.id === tempId
-                ? {
-                    ...c,
-                    id: remote.id,
-                    inviteCode: remote.invite_code || c.inviteCode,
-                  }
-                : c,
-            ),
+            challenges: s.challenges.map((c) => (c.id === tempId ? saved : c)),
           }));
+          challenge = saved;
         }
       } catch (e) {
         console.warn('Backend streak save failed, cached locally:', e);
@@ -296,6 +297,7 @@ export function useStreaker() {
         const challenge: Challenge = {
           id: remote.id,
           onchainId: remote.onchain_id || undefined,
+          creatorId: remote.creator_id,
           title: remote.title,
           description: remote.description || 'Kindle your flame together.',
           kind: remote.kind || 'fitness',
@@ -354,6 +356,29 @@ export function useStreaker() {
       update((s) => ({
         ...s,
         challenges: s.challenges.filter((challenge) => challenge.id !== id),
+      }));
+    },
+    [update],
+  );
+
+  const editChallenge = useCallback(
+    async (id: string, changes: Pick<Challenge, 'title' | 'description' | 'kind'>) => {
+      const user = current.current.user;
+      if (user && id.startsWith('streak-')) {
+        const res = await fetch(`${API_URL}/api/streaks/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id, ...changes }),
+        }).catch(() => null);
+        if (!res) throw new Error('The server is unreachable, so your changes were not saved.');
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: '' }));
+          throw new Error(err.detail || 'Your changes could not be saved. Try again.');
+        }
+      }
+      update((s) => ({
+        ...s,
+        challenges: s.challenges.map((c) => (c.id === id ? { ...c, ...changes } : c)),
       }));
     },
     [update],
@@ -489,6 +514,7 @@ export function useStreaker() {
         const newChallenge: Challenge = {
           id: rs.id,
           onchainId: rs.onchain_id || undefined,
+          creatorId: rs.creator_id,
           title: rs.title,
           description: rs.description || 'Kindle your flame together.',
           kind: rs.kind || 'fitness',
@@ -524,6 +550,7 @@ export function useStreaker() {
     createChallenge,
     joinChallenge,
     deleteChallenge,
+    editChallenge,
     uploadProof,
     inviteFriend,
     respondToInvitation,

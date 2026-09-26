@@ -113,6 +113,26 @@ export function useChallengeContract() {
         }),
       ),
 
+    settle: (streakId: bigint) =>
+      execute(
+        encodeFunctionData({
+          abi: DRACARYS_ABI,
+          functionName: 'settle',
+          args: [streakId],
+        }),
+      ),
+
+    getMemberSummary: async (streakId: bigint, user: Address) => {
+      if (!contractAddress || !publicClient) throw new Error('Dracarys contract not configured.');
+      const [lost, won, missedDays, unsettledDays, rewardClaimed] = await publicClient.readContract({
+        address: contractAddress,
+        abi: DRACARYS_ABI,
+        functionName: 'getMemberSummary',
+        args: [streakId, user],
+      });
+      return { lost, won, missedDays, unsettledDays, rewardClaimed };
+    },
+
     cancelStreak: (streakId: bigint) =>
       execute(
         encodeFunctionData({

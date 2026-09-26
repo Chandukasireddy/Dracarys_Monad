@@ -126,16 +126,14 @@ describe("DracarysEscrow 🐉🔥", function () {
     );
   });
 
-  it("Should not pay out a day that was already burned", async function () {
+  it("Should not burn a day where the member submitted proof", async function () {
     await dracarys.igniteStreak("Two-Day Challenge", DAILY_STAKE, 2, { value: DAILY_STAKE * 2n });
     await dracarys.connect(friend1).joinStreak(1, { value: DAILY_STAKE * 2n });
 
-    await dracarys.connect(friend1).submitProof(1, "ipfs://late");
+    await dracarys.connect(friend1).submitProof(1, "ipfs://pending");
     await skipDays(1);
-    await dracarys.burnSlacker(1, friend1.address, 1);
-
-    await expect(dracarys.approveCheckIn(1, friend1.address, 1)).to.be.revertedWith(
-      "Dracarys: Day already settled"
+    await expect(dracarys.burnSlacker(1, friend1.address, 1)).to.be.revertedWith(
+      "Dracarys: Proof was submitted"
     );
   });
 
@@ -169,13 +167,12 @@ describe("DracarysEscrow 🐉🔥", function () {
     await dracarys.connect(friend2).approveCheckIn(1, friend1.address, 1);
     await skipDays(1);
 
-    // friend2 (the loser) left DAILY_STAKE in the pool; both winners get half.
-    await expect(dracarys.claimCompletionReward(1))
-      .to.emit(dracarys, "CompletionRewardClaimed")
-      .withArgs(1, owner.address, DAILY_STAKE / 2n);
-    await expect(dracarys.connect(friend1).claimCompletionReward(1))
-      .to.emit(dracarys, "CompletionRewardClaimed")
-      .withArgs(1, friend1.address, DAILY_STAKE / 2n);
+    // friend2 (the loser) missed the day; both winners get half of that stake.
+    await dracarys.claimCompletionReward(1);
+    await dracarys.connect(friend1).claimCompletionReward(1);
+    expect((await dracarys.getMemberSummary(1, owner.address)).won).to.equal(DAILY_STAKE / 2n);
+    expect((await dracarys.getMemberSummary(1, friend1.address)).won).to.equal(DAILY_STAKE / 2n);
+    expect((await dracarys.getMemberSummary(1, friend2.address)).lost).to.equal(DAILY_STAKE);
     expect((await dracarys.streaks(1)).totalPool).to.equal(0);
   });
 });

@@ -55,6 +55,10 @@ contract DracarysEscrow {
     mapping(uint256 => mapping(address => bool)) public completionRewardClaimed;
     // streakId => userAddress => dayIndex => missed day already burned
     mapping(uint256 => mapping(address => mapping(uint256 => bool))) public dayBurned;
+    // streakId => userAddress => MON lost to other members for missed days
+    mapping(uint256 => mapping(address => uint256)) public forfeited;
+    // streakId => userAddress => MON won from other members (missed-day shares + completion reward)
+    mapping(uint256 => mapping(address => uint256)) public winnings;
 
     // Events for Monad execution event streaming (monadNewHeads / monadLogs)
     event StreakIgnited(uint256 indexed streakId, string title, address indexed creator, uint256 dailyStake, uint256 totalDays);
@@ -206,62 +210,44 @@ contract DracarysEscrow {
     }
 
     /**
-     * @notice Slash a slacker: If 24h passed for a day without approved check-in, their daily stake is burned/split.
+     * @notice Slash a slacker: once a day is over with no proof submitted, that day's stake
+     *         moves to the members who did check in that day.
      */
     function burnSlacker(uint256 _streakId, address _slacker, uint256 _day) external {
         HabitStreak storage s = streaks[_streakId];
-        Participant storage p = participants[_streakId][_slacker];
-        require(p.hasJoined, "Dracarys: User not in streak");
+        require(participants[_streakId][_slacker].hasJoined, "Dracarys: User not in streak");
         require(_day >= 1 && _day <= s.totalDays, "Dracarys: Invalid day");
+        require(_currentDay(s) > _day, "Dracarys: Day is not over yet");
         require(!dayBurned[_streakId][_slacker][_day], "Dracarys: Day already settled");
-
-        uint256 currentDay = ((block.timestamp - s.startTime) / SECONDS_PER_DAY) + 1;
-        require(currentDay > _day, "Dracarys: Day is not over yet");
-
-        CheckInProof storage proof = checkIns[_streakId][_slacker][_day];
-        require(!proof.approved, "Dracarys: Day was approved");
-
-        uint256 burnedAmount = s.dailyStake;
-        require(s.totalPool >= burnedAmount, "Dracarys: Insufficient pool balance");
-
-        dayBurned[_streakId][_slacker][_day] = true;
-        p.isBurned = true;
-
-        // Distribute burned stake among faithful members who have active check-ins
-        address[] memory members = streakMembers[_streakId];
-        uint256 eligibleCount = 0;
-        for (uint256 i = 0; i < members.length; i++) {
-            if (members[i] != _slacker && !participants[_streakId][members[i]].isBurned) {
-                eligibleCount++;
-            }
-        }
-
-        if (eligibleCount > 0) {
-            uint256 share = burnedAmount / eligibleCount;
-            s.totalPool -= (share * eligibleCount);
-            for (uint256 i = 0; i < members.length; i++) {
-                address m = members[i];
-                if (m != _slacker && !participants[_streakId][m].isBurned) {
-                    (bool sent, ) = payable(m).call{value: share}("");
-                    require(sent, "Dracarys: Reward transfer failed");
-                }
-            }
-        }
-
-        emit StakeBurned(_streakId, _slacker, _day, burnedAmount);
+        require(bytes(checkIns[_streakId][_slacker][_day].proofUri).length == 0, "Dracarys: Proof was submitted");
+        require(s.totalPool >= s.dailyStake, "Dracarys: Insufficient pool balance");
+        _burn(_streakId, _slacker, _day);
     }
 
     /**
-     * @notice Claims an equal share of the remaining pool after completing every day.
-     *         The claim opens after the streak duration, so missed days can be burned first.
+     * @notice Settles every finished day in one transaction: unapproved proofs count as check-ins
+     *         (so an opponent cannot block a winner by never approving), and missed days are burned
+     *         to the members who showed up that day.
+     */
+    function settle(uint256 _streakId) external onlyMember(_streakId) {
+        HabitStreak storage s = streaks[_streakId];
+        uint256 lastDay = _currentDay(s) - 1;
+        _settle(_streakId, lastDay < s.totalDays ? lastDay : s.totalDays);
+    }
+
+    /**
+     * @notice After the streak ends, settles any open days and pays each member who checked in every
+     *         day an equal share of what is left in the pool (the losers' unreturned stake).
      */
     function claimCompletionReward(uint256 _streakId) external onlyMember(_streakId) {
         HabitStreak storage s = streaks[_streakId];
+        require(block.timestamp >= s.startTime + (s.totalDays * SECONDS_PER_DAY), "Dracarys: Streak is still active");
+        require(!completionRewardClaimed[_streakId][msg.sender], "Dracarys: Reward already claimed");
+        _settle(_streakId, s.totalDays);
+
         Participant storage winner = participants[_streakId][msg.sender];
         require(!winner.isBurned, "Dracarys: Participant was burned");
         require(winner.claimedDays >= s.totalDays, "Dracarys: Complete every day first");
-        require(block.timestamp >= s.startTime + (s.totalDays * SECONDS_PER_DAY), "Dracarys: Streak is still active");
-        require(!completionRewardClaimed[_streakId][msg.sender], "Dracarys: Reward already claimed");
 
         uint256 winnerCount = 0;
         address[] memory members = streakMembers[_streakId];
@@ -273,16 +259,70 @@ contract DracarysEscrow {
                 !completionRewardClaimed[_streakId][members[i]]
             ) winnerCount++;
         }
-        require(winnerCount > 0, "Dracarys: No winners");
 
         uint256 reward = s.totalPool / winnerCount;
         completionRewardClaimed[_streakId][msg.sender] = true;
         s.totalPool -= reward;
+        winnings[_streakId][msg.sender] += reward;
         if (s.totalPool == 0) s.status = StreakStatus.COMPLETED;
 
-        (bool sent, ) = payable(msg.sender).call{value: reward}("");
-        require(sent, "Dracarys: Failed to deliver completion reward");
+        if (reward > 0) {
+            (bool sent, ) = payable(msg.sender).call{value: reward}("");
+            require(sent, "Dracarys: Failed to deliver completion reward");
+        }
         emit CompletionRewardClaimed(_streakId, msg.sender, reward);
+    }
+
+    function _settle(uint256 _streakId, uint256 _lastDay) internal {
+        HabitStreak storage s = streaks[_streakId];
+        address[] memory members = streakMembers[_streakId];
+        for (uint256 day = 1; day <= _lastDay; day++) {
+            for (uint256 i = 0; i < members.length; i++) {
+                CheckInProof storage proof = checkIns[_streakId][members[i]][day];
+                if (proof.approved || dayBurned[_streakId][members[i]][day]) continue;
+                if (bytes(proof.proofUri).length > 0) {
+                    _executeKindle(_streakId, members[i], day);
+                } else if (s.totalPool >= s.dailyStake) {
+                    _burn(_streakId, members[i], day);
+                }
+            }
+        }
+    }
+
+    function _burn(uint256 _streakId, address _slacker, uint256 _day) internal {
+        HabitStreak storage s = streaks[_streakId];
+        uint256 burnedAmount = s.dailyStake;
+        dayBurned[_streakId][_slacker][_day] = true;
+        participants[_streakId][_slacker].isBurned = true;
+        forfeited[_streakId][_slacker] += burnedAmount;
+
+        // The stake goes to the members who checked in on that day.
+        address[] memory members = streakMembers[_streakId];
+        uint256 eligibleCount = 0;
+        for (uint256 i = 0; i < members.length; i++) {
+            if (members[i] != _slacker && bytes(checkIns[_streakId][members[i]][_day].proofUri).length > 0) {
+                eligibleCount++;
+            }
+        }
+
+        if (eligibleCount > 0) {
+            uint256 share = burnedAmount / eligibleCount;
+            s.totalPool -= (share * eligibleCount);
+            for (uint256 i = 0; i < members.length; i++) {
+                address m = members[i];
+                if (m != _slacker && bytes(checkIns[_streakId][m][_day].proofUri).length > 0) {
+                    winnings[_streakId][m] += share;
+                    (bool sent, ) = payable(m).call{value: share}("");
+                    require(sent, "Dracarys: Reward transfer failed");
+                }
+            }
+        }
+
+        emit StakeBurned(_streakId, _slacker, _day, burnedAmount);
+    }
+
+    function _currentDay(HabitStreak storage s) internal view returns (uint256) {
+        return ((block.timestamp - s.startTime) / SECONDS_PER_DAY) + 1;
     }
 
     function cancelStreak(uint256 _streakId) external {
@@ -304,5 +344,29 @@ contract DracarysEscrow {
     // View helpers
     function getStreakMembers(uint256 _streakId) external view returns (address[] memory) {
         return streakMembers[_streakId];
+    }
+
+    /**
+     * @notice Money summary for one member, used by the app for deducted / won notifications.
+     *         unsettledDays counts finished days (any member) that `settle` would still pay out or burn.
+     */
+    function getMemberSummary(uint256 _streakId, address _user)
+        external
+        view
+        returns (uint256 lost, uint256 won, uint256 missedDays, uint256 unsettledDays, bool rewardClaimed)
+    {
+        HabitStreak storage s = streaks[_streakId];
+        uint256 lastDay = s.startTime == 0 ? 0 : _currentDay(s) - 1;
+        if (lastDay > s.totalDays) lastDay = s.totalDays;
+        address[] memory members = streakMembers[_streakId];
+        for (uint256 day = 1; day <= lastDay; day++) {
+            if (bytes(checkIns[_streakId][_user][day].proofUri).length == 0) missedDays++;
+            for (uint256 i = 0; i < members.length; i++) {
+                if (!checkIns[_streakId][members[i]][day].approved && !dayBurned[_streakId][members[i]][day]) {
+                    unsettledDays++;
+                }
+            }
+        }
+        return (forfeited[_streakId][_user], winnings[_streakId][_user], missedDays, unsettledDays, completionRewardClaimed[_streakId][_user]);
     }
 }

@@ -58,12 +58,54 @@ describe("DracarysEscrow money flow: loser pays, winner receives", function () {
   it("burning a missed day moves that day's stake from loser to winner immediately", async function () {
     await send(winner, dracarys.connect(winner).igniteStreak("Gym", STAKE, DAYS, { value: DEPOSIT }));
     await send(loser, dracarys.connect(loser).joinStreak(1, { value: DEPOSIT }));
+    await send(winner, dracarys.connect(winner).submitProof(1, "ipfs://day1"));
     await nextDay(); // loser missed day 1
 
     const winnerBefore = await ethers.provider.getBalance(winner.address);
     gasSpent.clear();
     await send(winner, dracarys.connect(winner).burnSlacker(1, loser.address, 1));
     expect(await moved(winner, winnerBefore)).to.equal(STAKE);
+  });
+
+  it("loser cannot block the winner by never approving; settle moves the money", async function () {
+    const winnerStart = await ethers.provider.getBalance(winner.address);
+    const loserStart = await ethers.provider.getBalance(loser.address);
+    await send(winner, dracarys.connect(winner).igniteStreak("Gym", STAKE, DAYS, { value: DEPOSIT }));
+    await send(loser, dracarys.connect(loser).joinStreak(1, { value: DEPOSIT }));
+
+    // Winner uploads proof daily, the loser never approves and never checks in.
+    for (let day = 1; day <= DAYS; day++) {
+      await send(winner, dracarys.connect(winner).submitProof(1, `ipfs://day${day}`));
+      await nextDay();
+    }
+    await send(winner, dracarys.connect(winner).settle(1));
+
+    // Ledger used for the app's notifications.
+    const winnerSummary = await dracarys.getMemberSummary(1, winner.address);
+    const loserSummary = await dracarys.getMemberSummary(1, loser.address);
+    expect(winnerSummary.won).to.equal(DEPOSIT);
+    expect(loserSummary.lost).to.equal(DEPOSIT);
+    expect(loserSummary.missedDays).to.equal(DAYS);
+    expect(winnerSummary.unsettledDays).to.equal(0);
+
+    expect(await moved(winner, winnerStart)).to.equal(DEPOSIT);
+    expect(await moved(loser, loserStart)).to.equal(-DEPOSIT);
+
+    // Claiming afterwards still works and has nothing left to pay.
+    await send(winner, dracarys.connect(winner).claimCompletionReward(1));
+    expect(await ethers.provider.getBalance(await dracarys.getAddress())).to.equal(0n);
+  });
+
+  it("claiming at the end settles open days automatically", async function () {
+    const winnerStart = await ethers.provider.getBalance(winner.address);
+    await send(winner, dracarys.connect(winner).igniteStreak("Gym", STAKE, DAYS, { value: DEPOSIT }));
+    await send(loser, dracarys.connect(loser).joinStreak(1, { value: DEPOSIT }));
+    for (let day = 1; day <= DAYS; day++) {
+      await send(winner, dracarys.connect(winner).submitProof(1, `ipfs://day${day}`));
+      await nextDay();
+    }
+    await send(winner, dracarys.connect(winner).claimCompletionReward(1));
+    expect(await moved(winner, winnerStart)).to.equal(DEPOSIT);
   });
 
   it("if both finish, nobody loses: each gets their full stake back", async function () {

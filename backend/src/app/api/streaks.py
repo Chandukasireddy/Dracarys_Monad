@@ -30,6 +30,12 @@ class StreakCreateBody(BaseModel):
     required_approvals: int = 1
     onchain_id: Optional[str] = None
 
+class StreakUpdateBody(BaseModel):
+    user_id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    kind: Optional[str] = None
+
 class StreakJoinBody(BaseModel):
     user_id: str
     wallet_address: Optional[str] = None
@@ -125,6 +131,24 @@ def get_streak(id: str):
     if not streak:
         raise HTTPException(status_code=404, detail=f"Streak {id} not found")
     return streak
+
+@router.patch("/{id}")
+def update_streak(id: str, req: StreakUpdateBody):
+    """Edit a streak's title, description or habit type (creator only)."""
+    if req.title is not None and not req.title.strip():
+        raise HTTPException(status_code=400, detail="Streak title is required")
+    if req.kind is not None and req.kind not in ("fitness", "reading", "mindfulness"):
+        raise HTTPException(status_code=400, detail="Unknown habit type")
+    try:
+        return db.update_streak(id, req.user_id, {
+            "title": req.title.strip() if req.title else None,
+            "description": req.description,
+            "kind": req.kind,
+        })
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 @router.delete("/{id}")
 def delete_streak(id: str, user_id: str = Query(...)):

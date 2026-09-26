@@ -24,6 +24,8 @@ import {
   Sparkles,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useStreaker, stakeTotal, type RemoteStreak } from '@/hooks/use-streaker';
 import { Challenge, dayKey, challengeDates, longestRun, currentRun } from '@/lib/types';
@@ -33,11 +35,12 @@ import { Calendar } from './calendar';
 import { FriendApprovals } from './friend-approvals';
 import { Modal } from './modal';
 import { CheckInModal } from './check-in-modal';
-import { CreateChallenge, JoinChallenge } from './create-challenge';
+import { CreateChallenge, EditChallenge, JoinChallenge } from './create-challenge';
 import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
 import { AccountModal } from './account-modal';
 import { useChallengeContract } from '@/hooks/use-challenge-contract';
+import { useMoneyAlerts } from '@/hooks/use-money-alerts';
 import { DRACARYS_ABI } from '@/lib/contract';
 
 type Tab = 'streaks' | 'friends' | 'progress';
@@ -51,6 +54,7 @@ export function StreakerApp() {
     [dialog, setDialog] = useState<Dialog>(null),
     [checkIn, setCheckIn] = useState<Challenge | null>(null),
     [details, setDetails] = useState<Challenge | null>(null),
+    [editing, setEditing] = useState<Challenge | null>(null),
     [toast, setToast] = useState(''),
     [filter, setFilter] = useState<'active' | 'completed'>('active'),
     [detailsInvited, setDetailsInvited] = useState<Record<string, boolean>>({}),
@@ -76,6 +80,8 @@ export function StreakerApp() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+  const money = useMoneyAlerts(store.challenges, contract, address, notify);
+  const unsettled = money.summaries.filter((m) => m.unsettledDays > 0n);
   const pending = store.approvals.filter((a) => !a.approved).length;
   const longest = Math.max(0, ...store.challenges.map((c) => longestRun(challengeDates(c))));
   const currentStreak = Math.max(0, ...store.challenges.map((c) => currentRun(challengeDates(c))));
@@ -145,29 +151,39 @@ export function StreakerApp() {
       return;
     }
     try {
-      const receipt = await contract.claimCompletionReward(BigInt(details.onchainId));
-      // MetaMask does not list contract payouts under Activity, so say what arrived here.
-      const reward = parseEventLogs({
-        abi: DRACARYS_ABI,
-        eventName: 'CompletionRewardClaimed',
-        logs: receipt.logs,
-      })[0]?.args.reward;
-      notify(
-        reward !== undefined
-          ? `You won ${formatEther(reward)} MON. It's in your wallet balance now.`
-          : 'Winner reward claimed from Monad Testnet.',
-      );
+      await contract.claimCompletionReward(BigInt(details.onchainId));
+      notify('Winner reward claimed from Monad Testnet.');
+      await money.refresh();
       setDetails(null);
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Reward claim failed.');
     }
   };
-  const removeChallenge = async () => {
-    if (!details) return;
-    if (!window.confirm('Delete this challenge from your dashboard?')) return;
-    if (details.onchainId && isConnected) {
+  // Only the creator can edit; challenges without a known creator were made on this device.
+  const canEdit = (c: Challenge) => !c.creatorId || c.creatorId === store.user?.id;
+  const settleChallenge = async (challenge: Challenge) => {
+    if (!challenge.onchainId) return;
+    try {
+      await contract.settle(BigInt(challenge.onchainId));
+      notify('Missed days settled on Monad.');
+      await money.refresh();
+    } catch (error) {
+      notify(error instanceof Error ? error.message.split('\n')[0] : 'Settling failed.');
+    }
+  };
+  const removeChallenge = async (challenge: Challenge) => {
+    const leaving = !canEdit(challenge);
+    if (
+      !window.confirm(
+        leaving
+          ? `Leave "${challenge.title}"? It will be removed from your dashboard.${challenge.onchainId ? ' Any MON you locked stays in the challenge.' : ''}`
+          : `Delete "${challenge.title}"? This removes it for everyone in the challenge.`,
+      )
+    )
+      return;
+    if (challenge.onchainId && isConnected && !leaving) {
       try {
-        await contract.cancelStreak(BigInt(details.onchainId));
+        await contract.cancelStreak(BigInt(challenge.onchainId));
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'The refund failed.';
         // Group or already-started challenges cannot be refunded; the stake stays in escrow.
@@ -180,13 +196,13 @@ export function StreakerApp() {
       }
     }
     try {
-      await store.deleteChallenge(details.id);
+      await store.deleteChallenge(challenge.id);
     } catch (error) {
       notify(error instanceof Error ? error.message : 'The challenge could not be deleted.');
       return;
     }
     setDetails(null);
-    notify('Challenge deleted.');
+    notify(leaving ? 'You left the challenge.' : 'Challenge deleted.');
   };
   const approve = (id: string) => {
     store.approveFriend(id);
@@ -343,7 +359,7 @@ export function StreakerApp() {
               onClick={() => setDialog('notifications')}
             >
               <Bell size={19} />
-              {pending > 0 && <i />}
+              {(pending > 0 || unsettled.length > 0) && <i />}
             </button>
             <button
               className="wallet-button"
@@ -675,6 +691,8 @@ export function StreakerApp() {
                           challenge={c}
                           onCheckIn={() => setCheckIn(c)}
                           onDetails={() => setDetails(c)}
+                          onEdit={canEdit(c) ? () => setEditing(c) : undefined}
+                          onDelete={() => removeChallenge(c)}
                         />
                       ))}
                   </div>
@@ -892,6 +910,16 @@ export function StreakerApp() {
           }}
         />
       )}
+      {editing && (
+        <EditChallenge
+          challenge={editing}
+          onClose={() => setEditing(null)}
+          onSave={async (changes) => {
+            await store.editChallenge(editing.id, changes);
+            notify('Challenge updated.');
+          }}
+        />
+      )}
       {checkIn && (
         <CheckInModal
           challenge={checkIn}
@@ -926,13 +954,47 @@ export function StreakerApp() {
               <strong>{stakeTotal(details.dailyStake, details.completed)} MON</strong>
             </div>
           </div>
+          {(() => {
+            const summary = money.summaries.find((m) => m.challengeId === details.id);
+            if (!summary) return null;
+            return (
+              <>
+                <div className="commitment-summary money-summary">
+                  <div>
+                    <span>Deducted from you</span>
+                    <strong className="money-lost">−{formatEther(summary.lost)} MON</strong>
+                  </div>
+                  <div>
+                    <span>Won from friends</span>
+                    <strong className="money-won">+{formatEther(summary.won)} MON</strong>
+                  </div>
+                </div>
+                {summary.unsettledDays > 0n && (
+                  <button className="button secondary full" onClick={() => settleChallenge(details)}>
+                    <Zap size={16} /> Settle missed days
+                  </button>
+                )}
+              </>
+            );
+          })()}
           {details.completed >= details.duration && details.onchainId && isConnected && (
             <button className="button primary full" onClick={claimCompletionReward}>
               <Wallet size={17} /> Claim winner reward
             </button>
           )}
-          <button className="button secondary full" onClick={removeChallenge}>
-            Delete challenge
+          {canEdit(details) && (
+            <button
+              className="button secondary full"
+              onClick={() => {
+                setEditing(details);
+                setDetails(null);
+              }}
+            >
+              <Pencil size={16} /> Edit challenge
+            </button>
+          )}
+          <button className="button secondary full danger" onClick={() => removeChallenge(details)}>
+            <Trash2 size={16} /> {canEdit(details) ? 'Delete challenge' : 'Leave challenge'}
           </button>
           <button
             className="invite-code full"
@@ -1065,6 +1127,37 @@ export function StreakerApp() {
           onClose={() => setDialog(null)}
         >
           <div className="notification-list">
+            {money.summaries
+              .filter((m) => m.lost > 0n || m.won > 0n)
+              .map((m) => (
+                <div key={m.challengeId} className="money-notification">
+                  <Wallet />
+                  <span>
+                    <strong>{m.title}</strong>
+                    {m.lost > 0n && (
+                      <small className="money-lost">
+                        −{formatEther(m.lost)} MON deducted for missed days
+                      </small>
+                    )}
+                    {m.won > 0n && (
+                      <small className="money-won">+{formatEther(m.won)} MON added to your wallet</small>
+                    )}
+                  </span>
+                </div>
+              ))}
+            {unsettled.map((m) => {
+              const challenge = store.challenges.find((c) => c.id === m.challengeId);
+              return (
+                <button key={`settle-${m.challengeId}`} onClick={() => challenge && settleChallenge(challenge)}>
+                  <Zap />
+                  <span>
+                    <strong>Missed days waiting in “{m.title}”</strong>
+                    <small>Settle to move the MON to whoever showed up.</small>
+                  </span>
+                  <ArrowRight size={16} />
+                </button>
+              );
+            })}
             <button
               onClick={() => {
                 setDialog(null);
@@ -1096,7 +1189,10 @@ export function StreakerApp() {
               <ArrowRight size={16} />
             </button>
           </div>
-          <p className="helper">In-app demo reminders. Push notifications are not enabled.</p>
+          <p className="helper">
+            MetaMask doesn’t list payouts from the contract, so money updates appear here and on
+            MonadVision under Internal Transactions.
+          </p>
         </Modal>
       )}
       {dialog === 'settings' && (

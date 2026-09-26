@@ -8,6 +8,8 @@ import {
   Check,
   Users,
   LockKeyhole,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Challenge, dayKey } from '@/lib/types';
 import { stakeTotal } from '@/hooks/use-streaker';
@@ -16,10 +18,14 @@ export function HabitCard({
   challenge,
   onCheckIn,
   onDetails,
+  onEdit,
+  onDelete,
 }: {
   challenge: Challenge;
   onCheckIn: () => void;
   onDetails: () => void;
+  onEdit?: () => void;
+  onDelete: () => void;
 }) {
   const Icon = icons[challenge.kind];
   const done = challenge.lastCheckIn === dayKey();
@@ -35,13 +41,33 @@ export function HabitCard({
           <span />
           {finished ? 'Completed' : done ? 'Checked in' : 'In progress'}
         </span>
-        <button
-          className="icon-button habit-details"
-          onClick={onDetails}
-          aria-label={`View ${challenge.title}`}
-        >
-          <ArrowUpRight size={19} />
-        </button>
+        <div className="habit-actions">
+          {onEdit && (
+            <button
+              className="icon-button habit-action"
+              onClick={onEdit}
+              aria-label={`Edit ${challenge.title}`}
+              title="Edit"
+            >
+              <Pencil size={16} />
+            </button>
+          )}
+          <button
+            className="icon-button habit-action danger"
+            onClick={onDelete}
+            aria-label={`Delete ${challenge.title}`}
+            title="Delete"
+          >
+            <Trash2 size={16} />
+          </button>
+          <button
+            className="icon-button habit-details"
+            onClick={onDetails}
+            aria-label={`View ${challenge.title}`}
+          >
+            <ArrowUpRight size={19} />
+          </button>
+        </div>
       </div>
       <h3>{challenge.title}</h3>
       <p className="habit-description">{challenge.description}</p>
