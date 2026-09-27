@@ -2,6 +2,7 @@
 import { useConnection, usePublicClient, useWalletClient, useSwitchChain } from 'wagmi';
 import { isAddress, parseEther, formatEther, encodeFunctionData, type Address, type Hex } from 'viem';
 import { monadTestnet } from '@/lib/chain';
+import { readSettlement } from '@/lib/settlement';
 import {
   DRACARYS_CONTRACT_ADDRESS,
   DRACARYS_ABI,
@@ -121,6 +122,34 @@ export function useChallengeContract() {
           args: [streakId],
         }),
       ),
+
+    readSettlement: (streakId: bigint) => {
+      if (!contractAddress || !publicClient || !address) return Promise.resolve(null);
+      return readSettlement(publicClient, contractAddress, streakId, address);
+    },
+
+    /**
+     * Burns each finished day a friend missed, one transaction per day, moving that day's stake
+     * to the other members. Re-reads the chain before every burn so a day is never burned twice
+     * (the deployed contract does not prevent that itself). Returns how many days were settled.
+     */
+    collectMissedDays: async (streakId: bigint) => {
+      if (!contractAddress || !publicClient || !address) throw new Error('Connect your wallet first.');
+      let settled = 0;
+      for (;;) {
+        const state = await readSettlement(publicClient, contractAddress, streakId, address);
+        const next = state?.unsettled.find((m) => m.slacker.toLowerCase() !== address.toLowerCase());
+        if (!next) return settled;
+        await execute(
+          encodeFunctionData({
+            abi: DRACARYS_ABI,
+            functionName: 'burnSlacker',
+            args: [streakId, next.slacker, next.day],
+          }),
+        );
+        settled++;
+      }
+    },
 
     cancelStreak: (streakId: bigint) =>
       execute(

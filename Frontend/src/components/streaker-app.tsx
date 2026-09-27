@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useConnection } from 'wagmi';
-import { parseEventLogs } from 'viem';
+import { parseEventLogs, formatEther } from 'viem';
 import {
   Flame,
   Zap,
@@ -40,6 +40,7 @@ import { WalletModal } from './wallet-modal';
 import { PwaControl } from './pwa';
 import { AccountModal } from './account-modal';
 import { useChallengeContract } from '@/hooks/use-challenge-contract';
+import { useMoneyAlerts } from '@/hooks/use-money-alerts';
 import { DRACARYS_ABI } from '@/lib/contract';
 
 type Tab = 'streaks' | 'friends' | 'progress';
@@ -79,6 +80,8 @@ export function StreakerApp() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+  const money = useMoneyAlerts(store.challenges, contract, address, notify);
+  const collectable = money.summaries.filter((m) => m.collectable > 0n);
   const pending = store.approvals.filter((a) => !a.approved).length;
   const longest = Math.max(0, ...store.challenges.map((c) => longestRun(challengeDates(c))));
   const currentStreak = Math.max(0, ...store.challenges.map((c) => currentRun(challengeDates(c))));
@@ -157,6 +160,20 @@ export function StreakerApp() {
   };
   // Only the creator can edit; challenges without a known creator were made on this device.
   const canEdit = (c: Challenge) => !c.creatorId || c.creatorId === store.user?.id;
+  const [collecting, setCollecting] = useState<string | null>(null);
+  const collectMissedDays = async (challenge: Challenge) => {
+    if (!challenge.onchainId) return;
+    setCollecting(challenge.id);
+    try {
+      const days = await contract.collectMissedDays(BigInt(challenge.onchainId));
+      if (!days) notify('Nothing to collect yet. A missed day can be collected once it is over.');
+      await money.refresh();
+    } catch (error) {
+      notify(error instanceof Error ? error.message.split('\n')[0] : 'Collecting failed.');
+    } finally {
+      setCollecting(null);
+    }
+  };
   const removeChallenge = async (challenge: Challenge) => {
     const leaving = !canEdit(challenge);
     if (
@@ -345,7 +362,7 @@ export function StreakerApp() {
               onClick={() => setDialog('notifications')}
             >
               <Bell size={19} />
-              {pending > 0 && <i />}
+              {(pending > 0 || collectable.length > 0) && <i />}
             </button>
             <button
               className="wallet-button"
@@ -940,6 +957,36 @@ export function StreakerApp() {
               <strong>{stakeTotal(details.dailyStake, details.completed)} MON</strong>
             </div>
           </div>
+          {(() => {
+            const summary = money.summaries.find((m) => m.challengeId === details.id);
+            if (!summary) return null;
+            return (
+              <>
+                <div className="commitment-summary money-summary">
+                  <div>
+                    <span>Deducted from you</span>
+                    <strong className="money-lost">−{formatEther(summary.lost)} MON</strong>
+                  </div>
+                  <div>
+                    <span>Won from friends</span>
+                    <strong className="money-won">+{formatEther(summary.won)} MON</strong>
+                  </div>
+                </div>
+                {summary.collectable > 0n && (
+                  <button
+                    className="button primary full"
+                    disabled={collecting === details.id}
+                    onClick={() => collectMissedDays(details)}
+                  >
+                    <Wallet size={16} />{' '}
+                    {collecting === details.id
+                      ? 'Collecting… approve each day in MetaMask'
+                      : `Collect ${formatEther(summary.collectable)} MON from missed days`}
+                  </button>
+                )}
+              </>
+            );
+          })()}
           {details.completed >= details.duration && details.onchainId && isConnected && (
             <button className="button primary full" onClick={claimCompletionReward}>
               <Wallet size={17} /> Claim winner reward
@@ -1090,6 +1137,43 @@ export function StreakerApp() {
           onClose={() => setDialog(null)}
         >
           <div className="notification-list">
+            {money.summaries
+              .filter((m) => m.lost > 0n || m.won > 0n)
+              .map((m) => (
+                <div key={m.challengeId} className="money-notification">
+                  <Wallet />
+                  <span>
+                    <strong>{m.title}</strong>
+                    {m.lost > 0n && (
+                      <small className="money-lost">
+                        −{formatEther(m.lost)} MON deducted for missed days
+                      </small>
+                    )}
+                    {m.won > 0n && (
+                      <small className="money-won">+{formatEther(m.won)} MON added to your wallet</small>
+                    )}
+                  </span>
+                </div>
+              ))}
+            {collectable.map((m) => {
+              const challenge = store.challenges.find((c) => c.id === m.challengeId);
+              return (
+                <button
+                  key={`collect-${m.challengeId}`}
+                  disabled={collecting === m.challengeId}
+                  onClick={() => challenge && collectMissedDays(challenge)}
+                >
+                  <Wallet />
+                  <span>
+                    <strong>
+                      Collect {formatEther(m.collectable)} MON from “{m.title}”
+                    </strong>
+                    <small>A friend missed a day. Approve each day in MetaMask.</small>
+                  </span>
+                  <ArrowRight size={16} />
+                </button>
+              );
+            })}
             <button
               onClick={() => {
                 setDialog(null);
