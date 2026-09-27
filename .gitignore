@@ -47,7 +47,7 @@ Thumbs.db
 .idea/
 *.swp
 
-
+#fianl deployment test comments for git hub actions
 # Dracarys PWA source assets and browser test output
 !web/public/icon-192.png
 !web/public/icon-512.png
